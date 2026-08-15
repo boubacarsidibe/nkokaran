@@ -507,6 +507,7 @@ class _Shell extends StatelessWidget {
           onRefillHearts: onRefillHearts,
           onBuyStreakFreeze: onBuyStreakFreeze,
           onDialectChanged: onDialectChanged,
+          onPracticeUnit: onPractice,
         );
         break;
     }

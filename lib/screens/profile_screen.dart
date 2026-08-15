@@ -12,6 +12,7 @@ class ProfileScreen extends StatelessWidget {
   final VoidCallback onRefillHearts;
   final VoidCallback onBuyStreakFreeze;
   final void Function(String dialect) onDialectChanged;
+  final void Function(NkoUnit unit) onPracticeUnit;
 
   const ProfileScreen({
     super.key,
@@ -19,6 +20,7 @@ class ProfileScreen extends StatelessWidget {
     required this.onRefillHearts,
     required this.onBuyStreakFreeze,
     required this.onDialectChanged,
+    required this.onPracticeUnit,
   });
 
   @override
@@ -302,7 +304,8 @@ class ProfileScreen extends StatelessWidget {
                 borderRadius: BorderRadius.circular(16),
                 child: InkWell(
                   borderRadius: BorderRadius.circular(16),
-                  onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => StatsScreen(progress: progress))),
+                  onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => StatsScreen(progress: progress, onPracticeUnit: onPracticeUnit))),
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                     decoration: BoxDecoration(border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(16)),

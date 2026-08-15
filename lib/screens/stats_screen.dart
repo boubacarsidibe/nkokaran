@@ -8,7 +8,8 @@ import '../theme/app_theme.dart';
 /// accuracy breakdown.
 class StatsScreen extends StatelessWidget {
   final Progress progress;
-  const StatsScreen({super.key, required this.progress});
+  final void Function(NkoUnit unit) onPracticeUnit;
+  const StatsScreen({super.key, required this.progress, required this.onPracticeUnit});
 
   @override
   Widget build(BuildContext context) {
@@ -97,6 +98,12 @@ class StatsScreen extends StatelessWidget {
                       title: unitStats[i].title,
                       accuracy: progress.accuracyForUnit(unitStats[i].id),
                       attempts: progress.unitAttempts[unitStats[i].id] ?? 0,
+                      onTap: unitStats[i].letters == null
+                          ? null
+                          : () {
+                              Navigator.of(context).pop();
+                              onPracticeUnit(unitStats[i]);
+                            },
                     ),
                   ],
               ],
@@ -140,40 +147,53 @@ class _UnitAccuracyRow extends StatelessWidget {
   final String title;
   final double accuracy;
   final int attempts;
-  const _UnitAccuracyRow({required this.title, required this.accuracy, required this.attempts});
+  final VoidCallback? onTap;
+  const _UnitAccuracyRow({required this.title, required this.accuracy, required this.attempts, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        border: Border.all(color: AppColors.line),
+    return Material(
+      color: AppColors.card,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
         borderRadius: BorderRadius.circular(14),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            border: Border.all(color: AppColors.line),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(child: Text(title, style: AppText.inter(fontSize: 14, fontWeight: FontWeight.w700))),
-              Text("${(accuracy * 100).round()}%", style: AppText.inter(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.indigo)),
+              Row(
+                children: [
+                  Expanded(child: Text(title, style: AppText.inter(fontSize: 14, fontWeight: FontWeight.w700))),
+                  Text("${(accuracy * 100).round()}%",
+                      style: AppText.inter(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.indigo)),
+                  if (onTap != null) ...[
+                    const SizedBox(width: 4),
+                    const Icon(Icons.chevron_right, color: AppColors.ink, size: 18),
+                  ],
+                ],
+              ),
+              const SizedBox(height: 8),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: LinearProgressIndicator(
+                  value: accuracy.clamp(0, 1),
+                  minHeight: 8,
+                  backgroundColor: AppColors.lockedNode,
+                  valueColor: AlwaysStoppedAnimation(accuracy >= 0.8 ? AppColors.green : AppColors.gold),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text("$attempts réponse${attempts > 1 ? 's' : ''}",
+                  style: AppText.inter(fontSize: 11, color: AppColors.ink.withValues(alpha: 0.6))),
             ],
           ),
-          const SizedBox(height: 8),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: LinearProgressIndicator(
-              value: accuracy.clamp(0, 1),
-              minHeight: 8,
-              backgroundColor: AppColors.lockedNode,
-              valueColor: AlwaysStoppedAnimation(accuracy >= 0.8 ? AppColors.green : AppColors.gold),
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text("$attempts réponse${attempts > 1 ? 's' : ''}",
-              style: AppText.inter(fontSize: 11, color: AppColors.ink.withValues(alpha: 0.6))),
-        ],
+        ),
       ),
     );
   }
