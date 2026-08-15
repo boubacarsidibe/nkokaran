@@ -38,7 +38,7 @@ Future<void> showChestDialog(BuildContext context, ChestReward reward) {
             Text("Unité terminée !", style: AppText.fraunces(fontSize: 22)),
             const SizedBox(height: 4),
             Text("Un coffre s'ouvre pour toi",
-                style: AppText.inter(fontSize: 13, color: AppColors.ink.withOpacity(0.65))),
+                style: AppText.inter(fontSize: 13, color: AppColors.ink.withValues(alpha: 0.65))),
             const SizedBox(height: 20),
             Row(
               mainAxisSize: MainAxisSize.min,

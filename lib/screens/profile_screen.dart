@@ -3,17 +3,24 @@ import '../models/badges.dart';
 import '../models/nko_data.dart';
 import '../state/progress_store.dart';
 import '../theme/app_theme.dart';
+import 'club_screen.dart';
+import 'glossary_screen.dart';
+import 'stats_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   final Progress progress;
   final VoidCallback onRefillHearts;
   final VoidCallback onBuyStreakFreeze;
+  final void Function(String dialect) onDialectChanged;
+  final void Function(NkoUnit unit) onPracticeUnit;
 
   const ProfileScreen({
     super.key,
     required this.progress,
     required this.onRefillHearts,
     required this.onBuyStreakFreeze,
+    required this.onDialectChanged,
+    required this.onPracticeUnit,
   });
 
   @override
@@ -204,6 +211,42 @@ class ProfileScreen extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               _SectionCard(
+                title: "Dialecte préféré",
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text("Utilisé pour mettre en avant le contenu qui correspond à ton dialecte.",
+                        style: AppText.inter(fontSize: 13, color: AppColors.ink.withValues(alpha: 0.7))),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final d in const [
+                          MapEntry("maninka", "Maninka"),
+                          MapEntry("bambara", "Bambara"),
+                          MapEntry("dioula", "Dioula"),
+                        ])
+                          ChoiceChip(
+                            label: Text(d.value, style: AppText.inter(fontSize: 13, fontWeight: FontWeight.w600)),
+                            selected: progress.preferredDialect == d.key,
+                            onSelected: (_) => onDialectChanged(d.key),
+                            selectedColor: AppColors.indigo,
+                            labelStyle: AppText.inter(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: progress.preferredDialect == d.key ? Colors.white : AppColors.ink,
+                            ),
+                            backgroundColor: AppColors.bg,
+                            side: BorderSide(color: progress.preferredDialect == d.key ? AppColors.indigo : AppColors.line),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              _SectionCard(
                 title: "Activité (7 derniers jours)",
                 child: SizedBox(
                   height: 90,
@@ -225,12 +268,76 @@ class ProfileScreen extends StatelessWidget {
                                 ),
                               ),
                               const SizedBox(height: 4),
-                              Text("${v}", style: AppText.inter(fontSize: 10, color: AppColors.ink.withValues(alpha: 0.6))),
+                              Text("$v", style: AppText.inter(fontSize: 10, color: AppColors.ink.withValues(alpha: 0.6))),
                             ],
                           ),
                         ),
                       );
                     }),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Material(
+                color: AppColors.card,
+                borderRadius: BorderRadius.circular(16),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const GlossaryScreen())),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    decoration: BoxDecoration(border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(16)),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.menu_book, color: AppColors.indigo, size: 20),
+                        const SizedBox(width: 12),
+                        Expanded(child: Text("Glossaire audio", style: AppText.inter(fontSize: 14, fontWeight: FontWeight.w700))),
+                        const Icon(Icons.chevron_right, color: AppColors.ink),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Material(
+                color: AppColors.card,
+                borderRadius: BorderRadius.circular(16),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => StatsScreen(progress: progress, onPracticeUnit: onPracticeUnit))),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    decoration: BoxDecoration(border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(16)),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.bar_chart, color: AppColors.indigo, size: 20),
+                        const SizedBox(width: 12),
+                        Expanded(child: Text("Statistiques", style: AppText.inter(fontSize: 14, fontWeight: FontWeight.w700))),
+                        const Icon(Icons.chevron_right, color: AppColors.ink),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Material(
+                color: AppColors.card,
+                borderRadius: BorderRadius.circular(16),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ClubScreen())),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    decoration: BoxDecoration(border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(16)),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.groups, color: AppColors.indigo, size: 20),
+                        const SizedBox(width: 12),
+                        Expanded(child: Text("Club d'apprentissage", style: AppText.inter(fontSize: 14, fontWeight: FontWeight.w700))),
+                        const Icon(Icons.chevron_right, color: AppColors.ink),
+                      ],
+                    ),
                   ),
                 ),
               ),
