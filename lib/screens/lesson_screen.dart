@@ -2,7 +2,11 @@ import 'package:flutter/material.dart';
 import '../models/nko_data.dart';
 import '../theme/app_theme.dart';
 import '../widgets/buttons.dart';
+import '../widgets/dictation_card.dart';
+import '../widgets/handwriting_canvas.dart';
 import '../widgets/lesson_cards.dart';
+import '../widgets/listening_card.dart';
+import '../widgets/pronunciation_card.dart';
 
 class LessonScreen extends StatelessWidget {
   final NkoUnit unit;
@@ -43,7 +47,10 @@ class LessonScreen extends StatelessWidget {
     // intro/wordIntro: a plain "Continuer". quiz/wordBank: a manual
     // "Vérifier" step gated on a selection. match: auto-checks itself and
     // only unlocks "Continuer" once every pair is solved.
-    final needsManualCheck = cur.type == ExerciseType.quiz || cur.type == ExerciseType.wordBank;
+    final needsManualCheck = cur.type == ExerciseType.quiz ||
+        cur.type == ExerciseType.wordBank ||
+        cur.type == ExerciseType.listening ||
+        cur.type == ExerciseType.dictation;
     final canContinue = !needsManualCheck && cur.type != ExerciseType.match;
     final canCheck = needsManualCheck && !checked;
     final buttonEnabled = canContinue || checked || (canCheck && selected != null);
@@ -119,13 +126,23 @@ class LessonScreen extends StatelessWidget {
                       if (checked)
                         Padding(
                           padding: const EdgeInsets.only(bottom: 10),
-                          child: Text(
-                            isCorrect ? "Excellent !" : "Pas tout à fait — regarde bien la prochaine fois.",
-                            style: AppText.inter(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                              color: isCorrect ? AppColors.green : AppColors.red,
-                            ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                isCorrect ? "Excellent !" : "Pas tout à fait — regarde bien la prochaine fois.",
+                                style: AppText.inter(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                  color: isCorrect ? AppColors.green : AppColors.red,
+                                ),
+                              ),
+                              if (!isCorrect && cur.explanation != null) ...[
+                                const SizedBox(height: 4),
+                                Text(cur.explanation!,
+                                    style: AppText.inter(fontSize: 13, color: AppColors.ink.withValues(alpha: 0.75))),
+                              ],
+                            ],
                           ),
                         ),
                       PrimaryButton(
@@ -163,6 +180,19 @@ class LessonScreen extends StatelessWidget {
           answer: cur.wordAnswer!,
           onChanged: (assembled) => onSelect(assembled),
         );
+      case ExerciseType.listening:
+        return ListeningCard(
+          exercise: cur,
+          selected: selected as NkoLetter?,
+          checked: checked,
+          onSelect: onSelect,
+        );
+      case ExerciseType.dictation:
+        return DictationCard(exercise: cur, onChanged: (assembled) => onSelect(assembled));
+      case ExerciseType.pronunciation:
+        return PronunciationCard(exercise: cur);
+      case ExerciseType.handwriting:
+        return HandwritingCanvas(letter: cur.letter!);
     }
   }
 }

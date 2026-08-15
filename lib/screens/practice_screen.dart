@@ -8,13 +8,20 @@ import '../theme/app_theme.dart';
 class PracticeScreen extends StatelessWidget {
   final Progress progress;
   final void Function(NkoUnit unit) onPractice;
+  final VoidCallback onPracticeMistakes;
 
-  const PracticeScreen({super.key, required this.progress, required this.onPractice});
+  const PracticeScreen({
+    super.key,
+    required this.progress,
+    required this.onPractice,
+    required this.onPracticeMistakes,
+  });
 
   @override
   Widget build(BuildContext context) {
     final completed = progress.completedUnits;
     final practicable = units.where((u) => u.letters != null).toList();
+    final mistakeCount = progress.weakLetters.length;
 
     return SafeArea(
       child: Center(
@@ -36,25 +43,82 @@ class PracticeScreen extends StatelessWidget {
                 ),
               ),
               Expanded(
-                child: ListView.separated(
+                child: ListView(
                   padding: const EdgeInsets.fromLTRB(22, 16, 22, 24),
-                  itemCount: practicable.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 10),
-                  itemBuilder: (context, i) {
-                    final unit = practicable[i];
-                    final unlocked = completed.contains(unit.id) ||
-                        (i == 0) ||
-                        completed.contains(practicable[i - 1].id);
-                    return _PracticeRow(
-                      unit: unit,
-                      unlocked: unlocked,
-                      mastered: completed.contains(unit.id),
-                      onTap: unlocked ? () => onPractice(unit) : null,
-                    );
-                  },
+                  children: [
+                    if (mistakeCount > 0) ...[
+                      _MistakesRow(count: mistakeCount, onTap: onPracticeMistakes),
+                      const SizedBox(height: 14),
+                    ],
+                    for (var i = 0; i < practicable.length; i++) ...[
+                      if (i > 0) const SizedBox(height: 10),
+                      Builder(builder: (context) {
+                        final unit = practicable[i];
+                        final unlocked = completed.contains(unit.id) ||
+                            (i == 0) ||
+                            completed.contains(practicable[i - 1].id);
+                        return _PracticeRow(
+                          unit: unit,
+                          unlocked: unlocked,
+                          mastered: completed.contains(unit.id),
+                          onTap: unlocked ? () => onPractice(unit) : null,
+                        );
+                      }),
+                    ],
+                  ],
                 ),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MistakesRow extends StatelessWidget {
+  final int count;
+  final VoidCallback onTap;
+  const _MistakesRow({required this.count, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.wrongBg,
+        border: Border.all(color: AppColors.red),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: const BoxDecoration(color: AppColors.red, shape: BoxShape.circle),
+                  alignment: Alignment.center,
+                  child: const Icon(Icons.replay_circle_filled, color: Colors.white, size: 20),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text("Réviser tes erreurs", style: AppText.inter(fontSize: 15, fontWeight: FontWeight.w700)),
+                      Text("$count lettre${count > 1 ? 's' : ''} à retravailler",
+                          style: AppText.inter(fontSize: 12, color: AppColors.ink.withValues(alpha: 0.6))),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.chevron_right, color: AppColors.ink),
+              ],
+            ),
           ),
         ),
       ),

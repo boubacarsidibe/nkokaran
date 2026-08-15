@@ -34,6 +34,22 @@ class Progress {
   List<String> badges;
   int streakFreezes;
 
+  /// Chars of letters most recently missed in a lesson — backs the
+  /// Practice hub's "review my mistakes" entry, mirroring Duolingo's
+  /// mistakes inbox.
+  List<String> weakLetters;
+
+  /// Sessions (lesson or practice) completed today/this week — backs the
+  /// daily/weekly challenge cards, independent of unit-completion state.
+  int sessionsToday;
+  String? sessionsTodayDate;
+  int sessionsThisWeek;
+  String? sessionsWeekKey;
+
+  /// Episode ids finished in the narrative "Saison" track — kept separate
+  /// from [completedUnits] since the two tracks don't gate each other.
+  List<String> completedEpisodes;
+
   Progress({
     List<String>? completedUnits,
     this.xp = 0,
@@ -47,10 +63,18 @@ class Progress {
     Map<String, int>? xpHistory,
     List<String>? badges,
     this.streakFreezes = 0,
+    List<String>? weakLetters,
+    this.sessionsToday = 0,
+    this.sessionsTodayDate,
+    this.sessionsThisWeek = 0,
+    this.sessionsWeekKey,
+    List<String>? completedEpisodes,
   })  : completedUnits = completedUnits ?? [],
         hearts = hearts ?? maxHearts,
         xpHistory = xpHistory ?? {},
-        badges = badges ?? [];
+        badges = badges ?? [],
+        weakLetters = weakLetters ?? [],
+        completedEpisodes = completedEpisodes ?? [];
 
   factory Progress.fromJson(Map<String, dynamic> json) => Progress(
         completedUnits: (json['completedUnits'] as List?)?.cast<String>() ?? [],
@@ -65,6 +89,12 @@ class Progress {
         xpHistory: (json['xpHistory'] as Map?)?.map((k, v) => MapEntry(k as String, v as int)) ?? {},
         badges: (json['badges'] as List?)?.cast<String>() ?? [],
         streakFreezes: json['streakFreezes'] ?? 0,
+        weakLetters: (json['weakLetters'] as List?)?.cast<String>() ?? [],
+        sessionsToday: json['sessionsToday'] ?? 0,
+        sessionsTodayDate: json['sessionsTodayDate'],
+        sessionsThisWeek: json['sessionsThisWeek'] ?? 0,
+        sessionsWeekKey: json['sessionsWeekKey'],
+        completedEpisodes: (json['completedEpisodes'] as List?)?.cast<String>() ?? [],
       );
 
   Map<String, dynamic> toJson() => {
@@ -80,6 +110,12 @@ class Progress {
         'xpHistory': xpHistory,
         'badges': badges,
         'streakFreezes': streakFreezes,
+        'weakLetters': weakLetters,
+        'sessionsToday': sessionsToday,
+        'sessionsTodayDate': sessionsTodayDate,
+        'sessionsThisWeek': sessionsThisWeek,
+        'sessionsWeekKey': sessionsWeekKey,
+        'completedEpisodes': completedEpisodes,
       };
 
   Progress copy() => Progress.fromJson(toJson());
@@ -124,6 +160,30 @@ class Progress {
 
   void awardBadge(String id) {
     if (!badges.contains(id)) badges.add(id);
+  }
+
+  void addWeakLetter(String char) {
+    weakLetters.remove(char);
+    weakLetters.add(char);
+    if (weakLetters.length > 30) weakLetters.removeAt(0);
+  }
+
+  /// Bumps the daily/weekly session counters that back the challenge cards.
+  /// Called once per finished lesson or practice session.
+  void recordSessionCompletion(DateTime now) {
+    final today = _dayKey(now);
+    if (sessionsTodayDate != today) {
+      sessionsTodayDate = today;
+      sessionsToday = 0;
+    }
+    sessionsToday += 1;
+
+    final week = _weekKey(now);
+    if (sessionsWeekKey != week) {
+      sessionsWeekKey = week;
+      sessionsThisWeek = 0;
+    }
+    sessionsThisWeek += 1;
   }
 }
 
@@ -176,6 +236,14 @@ void checkAndAwardBadges(Progress p) {
 /// Day string in the same shape as JS `Date().toDateString()` — a stable
 /// day key that only changes at local midnight.
 String _dayKey(DateTime d) => "${d.year}-${d.month}-${d.day}";
+
+/// Coarse year+week key (week = day-of-year / 7) — good enough to detect
+/// "new week" for the weekly challenge without pulling in an ISO-8601 lib.
+String _weekKey(DateTime d) {
+  final startOfYear = DateTime(d.year, 1, 1);
+  final week = d.difference(startOfYear).inDays ~/ 7;
+  return "${d.year}-W$week";
+}
 
 class ProgressStore {
   static Future<Progress> load() async {

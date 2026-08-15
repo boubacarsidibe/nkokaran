@@ -22,7 +22,7 @@ class IntroCard extends StatelessWidget {
         const SizedBox(height: 8),
         Text('se prononce « ${letter.sound} »',
             textAlign: TextAlign.center,
-            style: AppText.inter(fontSize: 14, color: AppColors.ink.withOpacity(0.7))),
+            style: AppText.inter(fontSize: 14, color: AppColors.ink.withValues(alpha: 0.7))),
       ],
     );
   }
@@ -47,7 +47,7 @@ class WordIntroCard extends StatelessWidget {
           "composé de ߒ (n) + ߞ (k) + ߏ (o) — cela signifie « je dis » dans les langues manding, "
           "et c'est aussi le nom de cette écriture.",
           textAlign: TextAlign.center,
-          style: AppText.inter(fontSize: 14, color: AppColors.ink.withOpacity(0.7), fontWeight: FontWeight.w400)
+          style: AppText.inter(fontSize: 14, color: AppColors.ink.withValues(alpha: 0.7), fontWeight: FontWeight.w400)
               .copyWith(height: 1.5),
         ),
       ],

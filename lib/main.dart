@@ -2,12 +2,15 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'models/nko_data.dart';
+import 'models/story_data.dart';
+import 'screens/episode_player_screen.dart';
 import 'screens/failed_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/league_screen.dart';
 import 'screens/lesson_screen.dart';
 import 'screens/practice_screen.dart';
 import 'screens/profile_screen.dart';
+import 'screens/story_list_screen.dart';
 import 'screens/summary_screen.dart';
 import 'state/progress_store.dart';
 import 'theme/app_theme.dart';
@@ -31,9 +34,9 @@ class NkoKalanApp extends StatelessWidget {
   }
 }
 
-enum _Screen { home, lesson, summary, failed }
+enum _Screen { home, lesson, summary, failed, episode }
 
-enum _Tab { learn, practice, league, profile }
+enum _Tab { learn, practice, story, league, profile }
 
 class NkoKalanRoot extends StatefulWidget {
   const NkoKalanRoot({super.key});
@@ -50,7 +53,9 @@ class _NkoKalanRootState extends State<NkoKalanRoot> {
   Timer? _heartTimer;
 
   NkoUnit? _activeUnit;
+  StoryEpisode? _activeEpisode;
   bool _isPractice = false;
+  bool _isMistakesReview = false;
   List<Exercise> _exercises = [];
   int _exIndex = 0;
   int _sessionXp = 0;
@@ -96,6 +101,7 @@ class _NkoKalanRootState extends State<NkoKalanRoot> {
     setState(() {
       _activeUnit = unit;
       _isPractice = false;
+      _isMistakesReview = false;
       _exercises = buildExercises(unit);
       _exIndex = 0;
       _sessionXp = 0;
@@ -115,7 +121,36 @@ class _NkoKalanRootState extends State<NkoKalanRoot> {
     setState(() {
       _activeUnit = unit;
       _isPractice = true;
+      _isMistakesReview = false;
       _exercises = buildPracticeExercises(unit.letters!, unit.pool!, count: 8);
+      _exIndex = 0;
+      _sessionXp = 0;
+      _sessionMistakes = 0;
+      _selected = null;
+      _checked = false;
+      _isCorrect = false;
+      _screen = _Screen.lesson;
+    });
+  }
+
+  void _startMistakesPractice() {
+    if (_progress.hearts <= 0) {
+      _showNoHeartsSnack();
+      return;
+    }
+    final letters = _progress.weakLetters.map(letterByChar).whereType<NkoLetter>().toList();
+    if (letters.isEmpty) return;
+    setState(() {
+      _activeUnit = const NkoUnit(
+        id: "mistakes",
+        title: "Révision des erreurs",
+        subtitle: "Tes lettres à retravailler",
+        letters: null,
+        pool: null,
+      );
+      _isPractice = true;
+      _isMistakesReview = true;
+      _exercises = buildPracticeExercises(letters, allLettersAndDigits, count: letters.length.clamp(4, 10));
       _exIndex = 0;
       _sessionXp = 0;
       _sessionMistakes = 0;
@@ -141,7 +176,7 @@ class _NkoKalanRootState extends State<NkoKalanRoot> {
     final cur = _exercises[_exIndex];
     if (_selected == null) return;
     bool ok;
-    if (cur.type == ExerciseType.wordBank) {
+    if (cur.type == ExerciseType.wordBank || cur.type == ExerciseType.dictation) {
       ok = listEquals(_selected as List<String>, cur.wordAnswer);
     } else if (cur.direction == QuizDirection.text) {
       ok = _selected == cur.correctLabel;
@@ -156,6 +191,7 @@ class _NkoKalanRootState extends State<NkoKalanRoot> {
       } else {
         _sessionMistakes += 1;
         _progress.loseHeart(DateTime.now());
+        if (cur.letter != null) _progress.addWeakLetter(cur.letter!.char);
       }
     });
     _persist();
@@ -171,9 +207,11 @@ class _NkoKalanRootState extends State<NkoKalanRoot> {
 
   void _goNext() {
     final cur = _exercises[_exIndex];
-    final failed = (cur.type == ExerciseType.quiz || cur.type == ExerciseType.wordBank) &&
-        !_isCorrect &&
-        _progress.hearts <= 0;
+    final needsHeart = cur.type == ExerciseType.quiz ||
+        cur.type == ExerciseType.wordBank ||
+        cur.type == ExerciseType.listening ||
+        cur.type == ExerciseType.dictation;
+    final failed = needsHeart && !_isCorrect && _progress.hearts <= 0;
     if (failed) {
       setState(() => _screen = _Screen.failed);
       return;
@@ -199,6 +237,12 @@ Future<void> _finishSession() async {
 
     _progress.addXp(_sessionXp, now);
     _progress.gems += gemsEarned;
+    _progress.recordSessionCompletion(now);
+
+    if (_isMistakesReview) {
+      _progress.weakLetters.clear();
+      _isMistakesReview = false;
+    }
 
     var unitFirstClear = false;
     if (!_isPractice) {
@@ -255,6 +299,22 @@ Future<void> _finishSession() async {
     _persist();
   }
 
+  void _startEpisode(StoryEpisode episode) {
+    setState(() {
+      _activeEpisode = episode;
+      _screen = _Screen.episode;
+    });
+  }
+
+  Future<void> _finishEpisode() async {
+    final episode = _activeEpisode!;
+    if (!_progress.completedEpisodes.contains(episode.id)) {
+      setState(() => _progress.completedEpisodes = [..._progress.completedEpisodes, episode.id]);
+      await _persist();
+    }
+    _returnToTab(_Tab.story);
+  }
+
   void _returnToTab(_Tab tab) {
     setState(() {
       _screen = _Screen.home;
@@ -290,8 +350,16 @@ Future<void> _finishSession() async {
             }
           },
           onPractice: _startPractice,
+          onPracticeMistakes: _startMistakesPractice,
           onRefillHearts: _refillHeartsWithGems,
           onBuyStreakFreeze: _buyStreakFreeze,
+          onPlayEpisode: _startEpisode,
+        );
+      case _Screen.episode:
+        return EpisodePlayerScreen(
+          episode: _activeEpisode!,
+          onFinished: _finishEpisode,
+          onQuit: () => _returnToTab(_Tab.story),
         );
       case _Screen.lesson:
         return LessonScreen(
@@ -339,8 +407,10 @@ class _Shell extends StatelessWidget {
   final void Function(NkoUnit, bool) onStart;
   final VoidCallback onHeartsTap;
   final void Function(NkoUnit) onPractice;
+  final VoidCallback onPracticeMistakes;
   final VoidCallback onRefillHearts;
   final VoidCallback onBuyStreakFreeze;
+  final void Function(StoryEpisode) onPlayEpisode;
 
   const _Shell({
     required this.tab,
@@ -349,8 +419,10 @@ class _Shell extends StatelessWidget {
     required this.onStart,
     required this.onHeartsTap,
     required this.onPractice,
+    required this.onPracticeMistakes,
     required this.onRefillHearts,
     required this.onBuyStreakFreeze,
+    required this.onPlayEpisode,
   });
 
   @override
@@ -361,7 +433,14 @@ class _Shell extends StatelessWidget {
         body = HomeScreen(progress: progress, onStart: onStart, onHeartsTap: onHeartsTap);
         break;
       case _Tab.practice:
-        body = PracticeScreen(progress: progress, onPractice: onPractice);
+        body = PracticeScreen(
+          progress: progress,
+          onPractice: onPractice,
+          onPracticeMistakes: onPracticeMistakes,
+        );
+        break;
+      case _Tab.story:
+        body = StoryListScreen(progress: progress, onPlay: onPlayEpisode);
         break;
       case _Tab.league:
         body = LeagueScreen(progress: progress);
@@ -391,6 +470,7 @@ class _Shell extends StatelessWidget {
             children: [
               _NavItem(icon: Icons.route, label: "Parcours", selected: tab == _Tab.learn, onTap: () => onTabChanged(_Tab.learn)),
               _NavItem(icon: Icons.fitness_center, label: "Entraîner", selected: tab == _Tab.practice, onTap: () => onTabChanged(_Tab.practice)),
+              _NavItem(icon: Icons.auto_stories, label: "Histoires", selected: tab == _Tab.story, onTap: () => onTabChanged(_Tab.story)),
               _NavItem(icon: Icons.emoji_events, label: "Ligue", selected: tab == _Tab.league, onTap: () => onTabChanged(_Tab.league)),
               _NavItem(icon: Icons.person, label: "Profil", selected: tab == _Tab.profile, onTap: () => onTabChanged(_Tab.profile)),
             ],

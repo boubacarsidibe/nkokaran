@@ -3,6 +3,8 @@ import '../models/badges.dart';
 import '../models/nko_data.dart';
 import '../state/progress_store.dart';
 import '../theme/app_theme.dart';
+import 'club_screen.dart';
+import 'glossary_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   final Progress progress;
@@ -225,12 +227,54 @@ class ProfileScreen extends StatelessWidget {
                                 ),
                               ),
                               const SizedBox(height: 4),
-                              Text("${v}", style: AppText.inter(fontSize: 10, color: AppColors.ink.withValues(alpha: 0.6))),
+                              Text("$v", style: AppText.inter(fontSize: 10, color: AppColors.ink.withValues(alpha: 0.6))),
                             ],
                           ),
                         ),
                       );
                     }),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Material(
+                color: AppColors.card,
+                borderRadius: BorderRadius.circular(16),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const GlossaryScreen())),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    decoration: BoxDecoration(border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(16)),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.menu_book, color: AppColors.indigo, size: 20),
+                        const SizedBox(width: 12),
+                        Expanded(child: Text("Glossaire audio", style: AppText.inter(fontSize: 14, fontWeight: FontWeight.w700))),
+                        const Icon(Icons.chevron_right, color: AppColors.ink),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Material(
+                color: AppColors.card,
+                borderRadius: BorderRadius.circular(16),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ClubScreen())),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    decoration: BoxDecoration(border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(16)),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.groups, color: AppColors.indigo, size: 20),
+                        const SizedBox(width: 12),
+                        Expanded(child: Text("Club d'apprentissage", style: AppText.inter(fontSize: 14, fontWeight: FontWeight.w700))),
+                        const Icon(Icons.chevron_right, color: AppColors.ink),
+                      ],
+                    ),
                   ),
                 ),
               ),

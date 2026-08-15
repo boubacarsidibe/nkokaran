@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import '../models/culture_data.dart';
 import '../models/nko_data.dart';
 import '../theme/app_theme.dart';
 import '../widgets/buttons.dart';
+import 'lesson_thread_screen.dart';
 
 class SummaryScreen extends StatelessWidget {
   final int sessionXp;
@@ -20,6 +22,12 @@ class SummaryScreen extends StatelessWidget {
     required this.onHome,
     required this.onReplay,
   });
+
+  void _openThread(BuildContext context) {
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => LessonThreadScreen(unitId: unit!.id, unitTitle: unit!.title),
+    ));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -56,7 +64,20 @@ class SummaryScreen extends StatelessWidget {
                     _Pill(icon: Icons.diamond, color: AppColors.indigo, label: "+$sessionGems"),
                   ],
                 ),
-                const SizedBox(height: 28),
+                if (unit != null && proverbForUnit(unit!.id) != null) ...[
+                  const SizedBox(height: 22),
+                  _ProverbCard(proverb: proverbForUnit(unit!.id)!),
+                ],
+                if (unit != null) ...[
+                  const SizedBox(height: 12),
+                  TextButton.icon(
+                    onPressed: () => _openThread(context),
+                    icon: const Icon(Icons.forum, size: 16, color: AppColors.indigo),
+                    label: Text("Discuter de cette leçon",
+                        style: AppText.inter(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.indigo)),
+                  ),
+                ],
+                const SizedBox(height: 16),
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -69,6 +90,43 @@ class SummaryScreen extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// One proverb per unit (feature 23), shown when the summary screen closes
+/// out a unit lesson.
+class _ProverbCard extends StatelessWidget {
+  final Proverb proverb;
+  const _ProverbCard({required this.proverb});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 360),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        border: Border.all(color: AppColors.line),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text("PROVERBE MANDING",
+              style: AppText.inter(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.clay, letterSpacing: 1.2)),
+          const SizedBox(height: 8),
+          Text(proverb.nko, textDirection: TextDirection.rtl, style: AppText.nko(fontSize: 20)),
+          const SizedBox(height: 4),
+          Text(proverb.transliteration,
+              style: AppText.inter(fontSize: 12, color: AppColors.ink.withValues(alpha: 0.6))
+                  .copyWith(fontStyle: FontStyle.italic)),
+          const SizedBox(height: 6),
+          Text('« ${proverb.translation} »', style: AppText.inter(fontSize: 13, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 6),
+          Text(proverb.explanation, style: AppText.inter(fontSize: 12, color: AppColors.ink.withValues(alpha: 0.7))),
+        ],
       ),
     );
   }

@@ -1,0 +1,122 @@
+/// Cultural content — proverbs and short culture notes shown alongside the
+/// lessons/episodes, plus the audio glossary's word list.
+library;
+
+import 'nko_data.dart';
+
+class CultureCard {
+  final String episodeId;
+  final String title;
+  final String body;
+  const CultureCard({required this.episodeId, required this.title, required this.body});
+}
+
+const cultureCards = <CultureCard>[
+  CultureCard(
+    episodeId: "ep1",
+    title: "Le marché, cœur de la vie manding",
+    body: "Dans les villes et villages manding (Guinée, Mali, Côte d'Ivoire, Burkina Faso…), le marché "
+        "n'est pas qu'un lieu d'achat : c'est là qu'on échange les nouvelles, qu'on négocie en plaisantant, "
+        "et qu'on entend se croiser plusieurs langues et dialectes — bambara, maninka, dioula — dans une "
+        "même journée. Marchander poliment, comme le fait Sekou, est perçu comme un signe de respect envers "
+        "le vendeur, pas comme de la méfiance.",
+  ),
+];
+
+CultureCard? cultureCardForEpisode(String episodeId) {
+  for (final c in cultureCards) {
+    if (c.episodeId == episodeId) return c;
+  }
+  return null;
+}
+
+class Proverb {
+  final String unitId;
+  final String nko;
+  final String transliteration;
+  final String translation;
+  final String explanation;
+  const Proverb({
+    required this.unitId,
+    required this.nko,
+    required this.transliteration,
+    required this.translation,
+    required this.explanation,
+  });
+}
+
+const proverbs = <Proverb>[
+  Proverb(
+    unitId: "u1",
+    nko: "ߊ߬ ߕߍ߫ ߞߐ߲߬ߘߐ߲߬ ߠߊ߫ ߝߊ߲߬ߞߋߟߋ߲ ߘߐ߫.",
+    transliteration: "A tɛ kɔnkɔn na fan kelen dɔ.",
+    translation: "On ne frappe pas un tam-tam d'un seul côté.",
+    explanation: "Toute chose a plusieurs facettes — invite à écouter les deux côtés d'une histoire avant de juger.",
+  ),
+  Proverb(
+    unitId: "u2",
+    nko: "ߓߊߘߋ߲ ߕߍ߫ ߛߊ߲ ߘߐ߫, ߓߊ߬ߙߊ ߦߋ߫ ߘߎ߱ ߘߐ߫.",
+    transliteration: "Baden tɛ san kɔnɔ, baraji bɛ dugu kɔnɔ.",
+    translation: "Un frère n'habite pas dans le ciel, l'entraide se trouve sur terre.",
+    explanation: "Rappelle l'importance de la solidarité concrète, entre proches, ici-bas.",
+  ),
+  Proverb(
+    unitId: "u3",
+    nko: "ߞߏ ߡߊ߫ ߣߌ߲߬ߣߌ߲߬, ߊ߬ ߦߴߊ߬ ߡߊ߬ ߞߏ ߘߌ߫.",
+    transliteration: "Ko ma nyinnyin, a bɛ a ma ko di.",
+    translation: "Une chose qui n'est pas encore arrivée peut toujours arriver.",
+    explanation: "Un appel à rester prudent et préparé, même quand tout semble calme.",
+  ),
+  Proverb(
+    unitId: "u4",
+    nko: "ߝߊ߬ ߞߊ߲ ߕߍ߫ ߕߌ߲ ߘߐ߫.",
+    transliteration: "Fa kan tɛ tɛn kɔnɔ.",
+    translation: "La parole d'un père ne tombe pas dans le vide.",
+    explanation: "Le conseil des aînés garde toujours son poids, même longtemps après avoir été donné.",
+  ),
+  Proverb(
+    unitId: "u5",
+    nko: "ߣߌ߫ ߌ ߡߊ߫ ߘߏ߲߬ ߛߎ ߘߐ߫, ߌ ߕߍ߫ ߣߎ߲ ߠߎ߬ ߟߐ߲߫.",
+    transliteration: "Ni i ma don su kɔnɔ, i tɛ suruku dɔn.",
+    translation: "Si tu n'entres pas dans la brousse la nuit, tu ne connaîtras jamais l'hyène.",
+    explanation: "On n'apprend vraiment les choses difficiles qu'en s'y confrontant soi-même.",
+  ),
+  Proverb(
+    unitId: "u6",
+    nko: "ߞߋߟߋ߲ ߕߍ߫ ߞߍ߫ ߓߏ߬ߟߏ߲ ߘߌ߫.",
+    transliteration: "Kelen tɛ kɛ bolon di.",
+    translation: "Un seul doigt ne fait pas un poing.",
+    explanation: "L'union fait la force — souvent cité pour parler d'entraide communautaire, un thème repris dans le comptage collectif.",
+  ),
+  Proverb(
+    unitId: "u7",
+    nko: "ߞߊ߲ ߘߌ߫ ߕߐ߯ ߛߣߍ߫, ߊ߬ ߕߍ߫ ߛߊ߬.",
+    transliteration: "Kan bɛ se ka to sen na, a tɛ sa.",
+    translation: "Une langue peut rester debout — elle ne meurt pas.",
+    explanation: "Souvent cité pour parler de la transmission des langues : tant qu'on la parle et qu'on l'écrit, une langue comme celle portée par le N'Ko continue de vivre.",
+  ),
+];
+
+Proverb? proverbForUnit(String unitId) {
+  for (final p in proverbs) {
+    if (p.unitId == unitId) return p;
+  }
+  return null;
+}
+
+class GlossaryEntry {
+  final String nko;
+  final String latin;
+  final String meaning;
+  const GlossaryEntry({required this.nko, required this.latin, required this.meaning});
+}
+
+/// Audio glossary content — every letter/digit already taught, plus the
+/// handful of words introduced in the lessons and the first story episode.
+final glossaryEntries = <GlossaryEntry>[
+  for (final l in allLettersAndDigits) GlossaryEntry(nko: l.char, latin: l.name, meaning: "se prononce « ${l.sound} »"),
+  const GlossaryEntry(nko: "ߒߞߏ", latin: "n-ko", meaning: '"je dis" — le nom de l\'écriture'),
+  const GlossaryEntry(nko: "ߌ ߣߌ߫ ߛߐ߬ߘߐ߲߬", latin: "i ni sɔgɔma", meaning: "bonjour"),
+  const GlossaryEntry(nko: "ߌ ߣߌ߫ ߖߊ߬ߣߍ߲", latin: "i ni sɛnɛ", meaning: "merci"),
+  const GlossaryEntry(nko: "ߡߊ߲߬ߜ", latin: "mangɛ", meaning: "mangue"),
+];
