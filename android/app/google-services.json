@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "605698339251",
+    "project_id": "nko-kalan",
+    "storage_bucket": "nko-kalan.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:605698339251:android:dd5ab4e23a3c6e121d5bc6",
+        "android_client_info": {
+          "package_name": "com.nkokalan.nko_kalan"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAWTOtBJfRp_7oEhOiW-Bvu11z3vS3-4pA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
