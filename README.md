@@ -81,6 +81,22 @@ security rules in `firestore.rules`, not by hiding the key). You'll also need
 to enable the **Anonymous** sign-in provider in the Firebase console —
 `flutterfire configure` and the `firebase` CLI don't expose that toggle.
 
+## Bambara text-to-speech (optional)
+
+Device TTS engines don't have a Bambara/Maninka/Dioula voice, so by default
+every dialect falls back to reading the Latin-alphabet approximation with a
+French voice — audibly wrong, but the closest thing available on-device. For
+users whose profile dialect is set to **Bambara**, the app can instead use
+[Djelia](https://djelia.cloud) for real Bambara speech synthesis (the only
+hosted TTS API we found with actual Bambara support — Maninka and Dioula have
+no comparable hosted service as of writing). To enable it:
+
+1. Create a free-tier account at [console.djelia.cloud](https://console.djelia.cloud) and grab an API key.
+2. Run the app with `flutter run --dart-define=DJELIA_API_KEY=your_key_here`.
+
+Without a key (or if a request fails), it silently falls back to the French
+voice — same as every other dialect.
+
 ## Getting started
 
 ```

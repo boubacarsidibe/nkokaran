@@ -1,16 +1,35 @@
+import 'dart:convert';
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:http/http.dart' as http;
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 
 /// Thin, lazily-initialized wrapper around `flutter_tts` — used to "speak"
 /// listening/dictation prompts since we don't ship real N'Ko audio files yet.
 /// The system TTS voice won't pronounce N'Ko script correctly (no engine
 /// supports it), so callers pass a plain Latin-alphabet approximation.
+///
+/// For users whose [preferredDialect] is "bambara", real Bambara speech is
+/// used instead via Djelia (https://djelia.cloud) — the only hosted TTS API
+/// we found with actual Bambara support (maninka/dioula have no comparable
+/// hosted service; Meta's MMS models cover them but require self-hosting a
+/// PyTorch model, so they're out of scope here). Requires a free-tier API
+/// key supplied at build/run time via `--dart-define=DJELIA_API_KEY=...`;
+/// without one (or on any request failure), this falls back to the same
+/// French-voice approximation used for all dialects.
 class TtsService {
   TtsService._();
   static final TtsService instance = TtsService._();
 
+  static const _djeliaApiKey = String.fromEnvironment('DJELIA_API_KEY');
+  static const _djeliaTtsUrl = 'https://djelia.cloud/api/v2/models/tts';
+
   final FlutterTts _tts = FlutterTts();
+  final AudioPlayer _player = AudioPlayer();
   bool _configured = false;
+  String _preferredDialect = "maninka";
+
+  void setDialect(String dialect) => _preferredDialect = dialect;
 
   Future<void> _ensureConfigured() async {
     if (_configured) return;
@@ -20,9 +39,40 @@ class TtsService {
   }
 
   Future<void> speak(String text) async {
+    if (_preferredDialect == "bambara" && _djeliaApiKey.isNotEmpty) {
+      if (await _speakBambara(text)) return;
+    }
     await _ensureConfigured();
     await _tts.stop();
     await _tts.speak(text);
+  }
+
+  /// Real Bambara speech via Djelia's TTS API. Returns false (never throws)
+  /// on any failure — network error, bad key, rate limit — so [speak] can
+  /// fall back to the French-voice approximation.
+  Future<bool> _speakBambara(String text) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse(_djeliaTtsUrl),
+            headers: {
+              'x-api-key': _djeliaApiKey,
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode({
+              'text': text,
+              'description': 'Sekou speaks with a clear, warm and natural voice',
+              'format': 'mp3',
+            }),
+          )
+          .timeout(const Duration(seconds: 10));
+      if (response.statusCode != 200) return false;
+      await _player.stop();
+      await _player.play(BytesSource(response.bodyBytes));
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 }
 
