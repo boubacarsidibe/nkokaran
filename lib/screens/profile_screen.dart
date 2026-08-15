@@ -5,6 +5,7 @@ import '../state/progress_store.dart';
 import '../theme/app_theme.dart';
 import 'club_screen.dart';
 import 'glossary_screen.dart';
+import 'stats_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   final Progress progress;
@@ -251,6 +252,27 @@ class ProfileScreen extends StatelessWidget {
                         const Icon(Icons.menu_book, color: AppColors.indigo, size: 20),
                         const SizedBox(width: 12),
                         Expanded(child: Text("Glossaire audio", style: AppText.inter(fontSize: 14, fontWeight: FontWeight.w700))),
+                        const Icon(Icons.chevron_right, color: AppColors.ink),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Material(
+                color: AppColors.card,
+                borderRadius: BorderRadius.circular(16),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => StatsScreen(progress: progress))),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    decoration: BoxDecoration(border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(16)),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.bar_chart, color: AppColors.indigo, size: 20),
+                        const SizedBox(width: 12),
+                        Expanded(child: Text("Statistiques", style: AppText.inter(fontSize: 14, fontWeight: FontWeight.w700))),
                         const Icon(Icons.chevron_right, color: AppColors.ink),
                       ],
                     ),
