@@ -9,14 +9,15 @@ import 'package:speech_to_text/speech_to_text.dart' as stt;
 /// The system TTS voice won't pronounce N'Ko script correctly (no engine
 /// supports it), so callers pass a plain Latin-alphabet approximation.
 ///
-/// For users whose [preferredDialect] is "bambara", real Bambara speech is
-/// used instead via Djelia (https://djelia.cloud) — the only hosted TTS API
-/// we found with actual Bambara support (maninka/dioula have no comparable
-/// hosted service; Meta's MMS models cover them but require self-hosting a
-/// PyTorch model, so they're out of scope here). Requires a free-tier API
-/// key supplied at build/run time via `--dart-define=DJELIA_API_KEY=...`;
-/// without one (or on any request failure), this falls back to the same
-/// French-voice approximation used for all dialects.
+/// Always tries real Bambara speech first via Djelia (https://djelia.cloud)
+/// — the only hosted TTS API we found with actual Manding-language support
+/// (maninka/dioula have no comparable hosted service; Meta's MMS models
+/// cover them but require self-hosting a PyTorch model, so they're out of
+/// scope here) — regardless of the user's dialect preference, since it's
+/// still closer to the real language family than the French-voice fallback.
+/// Requires a free-tier API key supplied at build/run time via
+/// `--dart-define=DJELIA_API_KEY=...`; without one (or on any request
+/// failure), falls back to the French-voice approximation.
 class TtsService {
   TtsService._();
   static final TtsService instance = TtsService._();
@@ -27,9 +28,6 @@ class TtsService {
   final FlutterTts _tts = FlutterTts();
   final AudioPlayer _player = AudioPlayer();
   bool _configured = false;
-  String _preferredDialect = "maninka";
-
-  void setDialect(String dialect) => _preferredDialect = dialect;
 
   Future<void> _ensureConfigured() async {
     if (_configured) return;
@@ -39,7 +37,7 @@ class TtsService {
   }
 
   Future<void> speak(String text) async {
-    if (_preferredDialect == "bambara" && _djeliaApiKey.isNotEmpty) {
+    if (_djeliaApiKey.isNotEmpty) {
       if (await _speakBambara(text)) return;
     }
     await _ensureConfigured();

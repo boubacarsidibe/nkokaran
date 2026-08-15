@@ -85,11 +85,13 @@ to enable the **Anonymous** sign-in provider in the Firebase console —
 
 Device TTS engines don't have a Bambara/Maninka/Dioula voice, so by default
 every dialect falls back to reading the Latin-alphabet approximation with a
-French voice — audibly wrong, but the closest thing available on-device. For
-users whose profile dialect is set to **Bambara**, the app can instead use
-[Djelia](https://djelia.cloud) for real Bambara speech synthesis (the only
-hosted TTS API we found with actual Bambara support — Maninka and Dioula have
-no comparable hosted service as of writing). To enable it:
+French voice — audibly wrong, but the closest thing available on-device.
+When configured, the app instead always tries
+[Djelia](https://djelia.cloud) first for real Bambara speech synthesis (the
+only hosted TTS API we found with actual Manding-language support — Maninka
+and Dioula have no comparable hosted service as of writing), regardless of
+the user's dialect preference, since it's still closer to the real language
+family than the French-voice fallback. To enable it:
 
 1. Create a free-tier account at [console.djelia.cloud](https://console.djelia.cloud) and grab an API key.
 2. Run the app with `flutter run --dart-define=DJELIA_API_KEY=your_key_here`.

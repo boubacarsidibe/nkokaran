@@ -12,7 +12,6 @@ import 'screens/practice_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/story_list_screen.dart';
 import 'screens/summary_screen.dart';
-import 'services/voice_service.dart';
 import 'state/progress_store.dart';
 import 'state/spaced_repetition.dart';
 import 'theme/app_theme.dart';
@@ -81,7 +80,6 @@ class _NkoKalanRootState extends State<NkoKalanRoot> {
 
   Future<void> _init() async {
     final p = await ProgressStore.load();
-    TtsService.instance.setDialect(p.preferredDialect);
     setState(() {
       _progress = p;
       _ready = true;
@@ -333,7 +331,6 @@ Future<void> _finishSession() async {
   }
 
   void _setPreferredDialect(String dialect) {
-    TtsService.instance.setDialect(dialect);
     setState(() => _progress.preferredDialect = dialect);
     _persist();
   }
