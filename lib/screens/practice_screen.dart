@@ -11,6 +11,7 @@ class PracticeScreen extends StatelessWidget {
   final VoidCallback onPracticeMistakes;
   final VoidCallback onPracticeReview;
   final int dueReviewCount;
+  final VoidCallback onPracticeTranslation;
 
   const PracticeScreen({
     super.key,
@@ -19,6 +20,7 @@ class PracticeScreen extends StatelessWidget {
     required this.onPracticeMistakes,
     required this.onPracticeReview,
     required this.dueReviewCount,
+    required this.onPracticeTranslation,
   });
 
   @override
@@ -58,6 +60,8 @@ class PracticeScreen extends StatelessWidget {
                       _ReviewRow(count: dueReviewCount, onTap: onPracticeReview),
                       const SizedBox(height: 14),
                     ],
+                    _TranslationRow(onTap: onPracticeTranslation),
+                    const SizedBox(height: 14),
                     for (var i = 0; i < practicable.length; i++) ...[
                       if (i > 0) const SizedBox(height: 10),
                       Builder(builder: (context) {
@@ -170,6 +174,55 @@ class _ReviewRow extends StatelessWidget {
                     children: [
                       Text("Révision espacée", style: AppText.inter(fontSize: 15, fontWeight: FontWeight.w700)),
                       Text("$count lettre${count > 1 ? 's' : ''} à réviser aujourd'hui",
+                          style: AppText.inter(fontSize: 12, color: AppColors.ink.withValues(alpha: 0.6))),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.chevron_right, color: AppColors.ink),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TranslationRow extends StatelessWidget {
+  final VoidCallback onTap;
+  const _TranslationRow({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.gold.withValues(alpha: 0.1),
+        border: Border.all(color: AppColors.gold),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: const BoxDecoration(color: AppColors.gold, shape: BoxShape.circle),
+                  alignment: Alignment.center,
+                  child: const Icon(Icons.translate, color: Colors.white, size: 20),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text("Traduction", style: AppText.inter(fontSize: 15, fontWeight: FontWeight.w700)),
+                      Text("Mots et phrases, dans les deux sens",
                           style: AppText.inter(fontSize: 12, color: AppColors.ink.withValues(alpha: 0.6))),
                     ],
                   ),

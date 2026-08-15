@@ -92,12 +92,12 @@ class NkoUnit {
 }
 
 final units = <NkoUnit>[
-  NkoUnit(id: "u1", title: "Les voyelles", subtitle: "7 sons de base", letters: vowels, pool: vowels),
+  const NkoUnit(id: "u1", title: "Les voyelles", subtitle: "7 sons de base", letters: vowels, pool: vowels),
   NkoUnit(id: "u2", title: "Consonnes I", subtitle: "ba · pa · ta · da · ka", letters: consA, pool: allLetters),
   NkoUnit(id: "u3", title: "Consonnes II", subtitle: "dja · tcha · sa · fa · ha", letters: consB, pool: allLetters),
   NkoUnit(id: "u4", title: "Consonnes III", subtitle: "ra · rra · la · ma · na", letters: consC, pool: allLetters),
   NkoUnit(id: "u5", title: "Consonnes IV", subtitle: "gba · nya · wa · ya · n", letters: consD, pool: allLetters),
-  NkoUnit(id: "u6", title: "Les chiffres", subtitle: "de 0 à 9", letters: digits, pool: digits),
+  const NkoUnit(id: "u6", title: "Les chiffres", subtitle: "de 0 à 9", letters: digits, pool: digits),
   const NkoUnit(id: "u7", title: "Ton premier mot", subtitle: "ߒߞߏ — le nom de l'écriture", letters: null, pool: null),
 ];
 
@@ -316,6 +316,68 @@ class Exercise {
         targetWord = null,
         targetPhonetic = null;
 }
+
+/// Bidirectional short-phrase translation drills (N'Ko→français and
+/// français→N'Ko) — feature 19. Built only from vocabulary already
+/// verified elsewhere in the app (greetings and "mangue" from the story
+/// episodes/glossary, digit glyphs from [digits]) rather than inventing new
+/// N'Ko sentences, for the same accuracy reasons noted on episode 2.
+final translationExercises = <Exercise>[
+  Exercise.quizText(
+    question: "Comment dit-on « bonjour » en N'Ko ?",
+    correctLabel: "ߌ ߣߌ߫ ߛߐ߬ߘߐ߲߬",
+    options: shuffle(["ߌ ߣߌ߫ ߛߐ߬ߘߐ߲߬", "ߌ ߣߌ߫ ߖߊ߬ߣߍ߲", "ߡߊ߲߬ߜ", "ߒߞߏ"]),
+    explanation: "ߌ ߣߌ߫ ߛߐ߬ߘߐ߲߬ (i ni sɔgɔma) est la salutation utilisée par Sekou et Aïcha au marché.",
+  ),
+  Exercise.quizText(
+    question: "Que veut dire « ߌ ߣߌ߫ ߛߐ߬ߘߐ߲߬ » ?",
+    correctLabel: "Bonjour",
+    options: shuffle(["Bonjour", "Merci", "Mangue", "Au revoir"]),
+  ),
+  Exercise.quizText(
+    question: "Comment dit-on « merci » en N'Ko ?",
+    correctLabel: "ߌ ߣߌ߫ ߖߊ߬ߣߍ߲",
+    options: shuffle(["ߌ ߣߌ߫ ߖߊ߬ߣߍ߲", "ߌ ߣߌ߫ ߛߐ߬ߘߐ߲߬", "ߡߊ߲߬ߜ", "ߒߞߏ"]),
+    explanation: "ߌ ߣߌ߫ ߖߊ߬ߣߍ߲ (i ni sɛnɛ) est ce que dit Sekou pour remercier Aïcha et Moussa.",
+  ),
+  Exercise.quizText(
+    question: "Que veut dire « ߌ ߣߌ߫ ߖߊ߬ߣߍ߲ » ?",
+    correctLabel: "Merci",
+    options: shuffle(["Merci", "Bonjour", "Mangue", "Combien ?"]),
+  ),
+  Exercise.quizText(
+    question: "Comment dit-on « mangue » en N'Ko ?",
+    correctLabel: "ߡߊ߲߬ߜ",
+    options: shuffle(["ߡߊ߲߬ߜ", "ߒߞߏ", "ߌ ߣߌ߫ ߛߐ߬ߘߐ߲߬", "ߌ ߣߌ߫ ߖߊ߬ߣߍ߲"]),
+    explanation: "ߡߊ߲߬ߜ (mangɛ) est ce que Sekou vient acheter au marché dans l'épisode 1.",
+  ),
+  Exercise.quizText(
+    question: "Que veut dire « ߡߊ߲߬ߜ » ?",
+    correctLabel: "Mangue",
+    options: shuffle(["Mangue", "Bonjour", "Merci", "École"]),
+  ),
+  Exercise.quizText(
+    question: "Comment écrit-on « trois » en chiffre N'Ko ?",
+    correctLabel: "߃",
+    options: shuffle(["߃", "߁", "߅", "߉"]),
+  ),
+  Exercise.quizText(
+    question: "Quel nombre représente ce chiffre N'Ko : ߅ ?",
+    correctLabel: "Cinq",
+    options: shuffle(["Cinq", "Trois", "Sept", "Un"]),
+  ),
+  Exercise.quizText(
+    question: "Comment écrit-on « sept » en chiffre N'Ko ?",
+    correctLabel: "߇",
+    options: shuffle(["߇", "߂", "߄", "߈"]),
+  ),
+  Exercise.quizText(
+    question: "Comment dit-on « je dis » — le nom de l'écriture N'Ko — en N'Ko ?",
+    correctLabel: "ߒߞߏ",
+    options: shuffle(["ߒߞߏ", "ߡߊ߲߬ߜ", "ߌ ߣߌ߫ ߛߐ߬ߘߐ߲߬", "ߌ ߣߌ߫ ߖߊ߬ߣߍ߲"]),
+    explanation: "ߒߞߏ (n-ko) veut dire « je dis » — c'est le nom donné à l'écriture par Solomana Kanté.",
+  ),
+];
 
 final _rng = Random();
 
