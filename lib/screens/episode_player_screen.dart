@@ -12,7 +12,12 @@ class EpisodePlayerScreen extends StatefulWidget {
   final VoidCallback onFinished;
   final VoidCallback onQuit;
 
-  const EpisodePlayerScreen({super.key, required this.episode, required this.onFinished, required this.onQuit});
+  const EpisodePlayerScreen({
+    super.key,
+    required this.episode,
+    required this.onFinished,
+    required this.onQuit,
+  });
 
   @override
   State<EpisodePlayerScreen> createState() => _EpisodePlayerScreenState();
@@ -20,6 +25,7 @@ class EpisodePlayerScreen extends StatefulWidget {
 
 class _EpisodePlayerScreenState extends State<EpisodePlayerScreen> {
   late String _currentId;
+  late List<ComprehensionQuestion> _quiz;
   bool _bilingual = true;
   bool _inQuiz = false;
   int _quizIndex = 0;
@@ -31,6 +37,9 @@ class _EpisodePlayerScreenState extends State<EpisodePlayerScreen> {
   void initState() {
     super.initState();
     _currentId = widget.episode.startId;
+    // Comprehension questions first, then a vocab drill built from the
+    // episode's own vocabulary — feature "episode-vocab exercises".
+    _quiz = [...widget.episode.quiz, ...buildVocabQuestions(widget.episode)];
   }
 
   void _advance(String nextId) {
@@ -53,7 +62,7 @@ class _EpisodePlayerScreenState extends State<EpisodePlayerScreen> {
   }
 
   void _checkQuiz() {
-    final q = widget.episode.quiz[_quizIndex];
+    final q = _quiz[_quizIndex];
     setState(() {
       _quizChecked = true;
       if (_quizSelected == q.correctLabel) _quizCorrectCount += 1;
@@ -61,8 +70,8 @@ class _EpisodePlayerScreenState extends State<EpisodePlayerScreen> {
   }
 
   Future<void> _nextQuizQuestion() async {
-    if (_quizIndex + 1 >= widget.episode.quiz.length) {
-      final total = widget.episode.quiz.length;
+    if (_quizIndex + 1 >= _quiz.length) {
+      final total = _quiz.length;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Compréhension : $_quizCorrectCount / $total bonnes réponses")),
       );
@@ -211,13 +220,13 @@ class _EpisodePlayerScreenState extends State<EpisodePlayerScreen> {
   }
 
   Widget _buildQuiz() {
-    final q = widget.episode.quiz[_quizIndex];
+    final q = _quiz[_quizIndex];
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text("Question ${_quizIndex + 1} / ${widget.episode.quiz.length}",
+          Text("Question ${_quizIndex + 1} / ${_quiz.length}",
               style: AppText.inter(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.clay)),
           const SizedBox(height: 10),
           Text(q.question, style: AppText.inter(fontSize: 17, fontWeight: FontWeight.w700)),
