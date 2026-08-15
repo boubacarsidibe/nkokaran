@@ -64,6 +64,11 @@ class Progress {
   int totalAnswered;
   int totalCorrect;
 
+  /// Time spent today, in milliseconds — backs the time-based daily
+  /// challenge, reset like [xpToday] at local midnight.
+  int timeTodayMs;
+  String? timeTodayDate;
+
   /// unitId -> attempts/correct, for the per-unit accuracy breakdown.
   Map<String, int> unitAttempts;
   Map<String, int> unitCorrect;
@@ -92,6 +97,8 @@ class Progress {
     this.totalTimeMs = 0,
     this.totalAnswered = 0,
     this.totalCorrect = 0,
+    this.timeTodayMs = 0,
+    this.timeTodayDate,
     Map<String, int>? unitAttempts,
     Map<String, int>? unitCorrect,
   })  : completedUnits = completedUnits ?? [],
@@ -131,6 +138,8 @@ class Progress {
         totalTimeMs: json['totalTimeMs'] ?? 0,
         totalAnswered: json['totalAnswered'] ?? 0,
         totalCorrect: json['totalCorrect'] ?? 0,
+        timeTodayMs: json['timeTodayMs'] ?? 0,
+        timeTodayDate: json['timeTodayDate'],
         unitAttempts: (json['unitAttempts'] as Map?)?.map((k, v) => MapEntry(k as String, v as int)) ?? {},
         unitCorrect: (json['unitCorrect'] as Map?)?.map((k, v) => MapEntry(k as String, v as int)) ?? {},
       );
@@ -159,6 +168,8 @@ class Progress {
         'totalTimeMs': totalTimeMs,
         'totalAnswered': totalAnswered,
         'totalCorrect': totalCorrect,
+        'timeTodayMs': timeTodayMs,
+        'timeTodayDate': timeTodayDate,
         'unitAttempts': unitAttempts,
         'unitCorrect': unitCorrect,
       };
@@ -229,6 +240,19 @@ class Progress {
       sessionsThisWeek = 0;
     }
     sessionsThisWeek += 1;
+  }
+
+  /// Adds elapsed session time to both the cumulative total (stats screen)
+  /// and today's running total (time-based daily challenge), resetting the
+  /// latter at local midnight like [xpToday].
+  void recordStudyTime(int ms, DateTime now) {
+    totalTimeMs += ms;
+    final today = _dayKey(now);
+    if (timeTodayDate != today) {
+      timeTodayDate = today;
+      timeTodayMs = 0;
+    }
+    timeTodayMs += ms;
   }
 
   /// Records one answered exercise for the stats screen's global and

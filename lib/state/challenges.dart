@@ -1,6 +1,6 @@
 import 'progress_store.dart';
 
-enum ChallengeMetric { xp, sessions }
+enum ChallengeMetric { xp, sessions, timeMinutes }
 
 /// A daily or weekly goal shown on Home. The catalog rotates deterministically
 /// by date so it's stable within a day/week without needing server state.
@@ -16,6 +16,8 @@ class Challenge {
         return p.xpToday;
       case ChallengeMetric.sessions:
         return p.sessionsToday;
+      case ChallengeMetric.timeMinutes:
+        return p.timeTodayMs ~/ 60000;
     }
   }
 }
@@ -33,6 +35,8 @@ const _dailyPool = [
   Challenge(title: "Gagne 80 XP aujourd'hui", metric: ChallengeMetric.xp, target: 80),
   Challenge(title: "Termine 2 leçons aujourd'hui", metric: ChallengeMetric.sessions, target: 2),
   Challenge(title: "Termine 3 leçons aujourd'hui", metric: ChallengeMetric.sessions, target: 3),
+  Challenge(title: "Passe 5 minutes à apprendre aujourd'hui", metric: ChallengeMetric.timeMinutes, target: 5),
+  Challenge(title: "Passe 10 minutes à apprendre aujourd'hui", metric: ChallengeMetric.timeMinutes, target: 10),
 ];
 
 const _weeklyPool = [
