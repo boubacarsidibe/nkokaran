@@ -21,6 +21,14 @@ const cultureCards = <CultureCard>[
         "même journée. Marchander poliment, comme le fait Sekou, est perçu comme un signe de respect envers "
         "le vendeur, pas comme de la méfiance.",
   ),
+  CultureCard(
+    episodeId: "ep2",
+    title: "Des chiffres propres au N'Ko",
+    body: "Quand Solomana Kanté a créé l'alphabet N'Ko en 1949, il lui a donné son propre système de "
+        "chiffres (߀ à ߉), distinct des chiffres arabo-indiens utilisés en français. Compter en N'Ko, "
+        "comme le fait Moussa avec Sekou, fait donc partie intégrante de l'écriture elle-même — ce n'est "
+        "pas un simple emprunt à une autre langue.",
+  ),
 ];
 
 CultureCard? cultureCardForEpisode(String episodeId) {

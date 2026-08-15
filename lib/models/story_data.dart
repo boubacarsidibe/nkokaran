@@ -189,4 +189,134 @@ final episode1 = StoryEpisode(
   },
 );
 
-final storyEpisodes = <StoryEpisode>[episode1];
+/// ------------------------------------------------------------------
+/// Episode 2 — "Combien de mangues ?"
+/// Sekou revient au marché acheter ses mangues ; Moussa (dioula), le frère
+/// d'Aïcha, l'aide à compter en N'Ko. N'Ko content here reuses phrases
+/// already verified in episode 1 (greetings, "merci", "des mangues", "ici")
+/// plus the digit glyphs from the app's own alphabet data, rather than
+/// introducing new unverified N'Ko sentences.
+/// ------------------------------------------------------------------
+
+const _moussa = StoryCharacter(id: "moussa", name: "Moussa", dialect: Dialect.dioula);
+
+final episode2 = StoryEpisode(
+  id: "ep2",
+  title: "Combien de mangues ?",
+  subtitle: "Sekou revient marchander, et compte en N'Ko avec Moussa",
+  characters: const [_sekou, _aicha, _moussa],
+  startId: "l1",
+  quiz: const [
+    ComprehensionQuestion(
+      question: "Qui est Moussa ?",
+      correctLabel: "Le frère d'Aïcha",
+      options: ["Le frère d'Aïcha", "Le père de Sekou", "Un client", "Le vendeur de riz"],
+    ),
+    ComprehensionQuestion(
+      question: "Quel chiffre correspond à ߃ ?",
+      correctLabel: "Trois",
+      options: ["Trois", "Cinq", "Sept", "Un"],
+    ),
+    ComprehensionQuestion(
+      question: "Que dit Sekou pour remercier Moussa de l'avoir aidé à compter ?",
+      correctLabel: "ߌ ߣߌ߫ ߖߊ߬ߣߍ߲ (merci)",
+      options: [
+        "ߌ ߣߌ߫ ߖߊ߬ߣߍ߲ (merci)",
+        "ߌ ߣߌ߫ ߛߏ߬ (bonsoir)",
+        "ߊ߲ ߠߊ߫ (à nous)",
+        "ߒߤߏ߲߬ (non)",
+      ],
+    ),
+  ],
+  lines: {
+    "l1": const DialogueLine(
+      id: "l1",
+      speaker: _sekou,
+      nko: "ߌ ߣߌ߫ ߛߐ߬ߘߐ߲߬!",
+      french: "Bonjour !",
+      nextId: "l2",
+    ),
+    "l2": const DialogueLine(
+      id: "l2",
+      speaker: _aicha,
+      nko: "ߌ ߣߌ߫ ߛߐ߬ߘߐ߲߬! ߌ ߦߋ߫ ߘߌ߬ ߟߊ߫؟",
+      french: "Bonjour ! Comment vas-tu ?",
+      nextId: "l3",
+    ),
+    "l3": const DialogueLine(
+      id: "l3",
+      speaker: _sekou,
+      nko: "ߒ ߦߋ߫ ߤߋߙߋ߲ ߠߋ߬ ߘߌ߫.",
+      french: "Je vais bien.",
+      nextId: "l4",
+    ),
+    "l4": const DialogueLine(
+      id: "l4",
+      speaker: _aicha,
+      nko: "ߡߊ߲߬ߜ ߟߎ߬ ߦߋ߲߬!",
+      french: "Les mangues sont là !",
+      nextId: "l5",
+    ),
+    "l5": const DialogueLine(
+      id: "l5",
+      speaker: _sekou,
+      nko: "ߌ ߣߌ߫ ߛߐ߬ߘߐ߲߬!",
+      french: "Bonjour ! (à Moussa, qui vient d'arriver)",
+      nextId: "l6",
+    ),
+    "l6": const DialogueLine(
+      id: "l6",
+      speaker: _moussa,
+      nko: "ߌ ߣߌ߫ ߛߐ߬ߘߐ߲߬!",
+      french: "Bonjour ! Je m'appelle Moussa, le frère d'Aïcha.",
+      nextId: "choice1",
+    ),
+    "choice1": const DialogueLine(
+      id: "choice1",
+      speaker: _aicha,
+      nko: "ߌ ߦߋ߫ ߖߋ߬ߟߌ ߛߌ߬ߡߛߊ߬؟",
+      french: "Tu en veux combien ?",
+      choices: [
+        DialogueChoice(label: "« Trois (߃) »", nextId: "l7a"),
+        DialogueChoice(label: "« Cinq (߅) »", nextId: "l7b"),
+      ],
+    ),
+    "l7a": const DialogueLine(
+      id: "l7a",
+      speaker: _sekou,
+      nko: "߃.",
+      french: "Trois.",
+      nextId: "l8",
+    ),
+    "l7b": const DialogueLine(
+      id: "l7b",
+      speaker: _sekou,
+      nko: "߅.",
+      french: "Cinq.",
+      nextId: "l8",
+    ),
+    "l8": const DialogueLine(
+      id: "l8",
+      speaker: _moussa,
+      nko: "߁, ߂, ߃, ߄, ߅...",
+      french: "Un, deux, trois, quatre, cinq... (il compte les mangues avec lui)",
+      nextId: "l9",
+    ),
+    "l9": const DialogueLine(
+      id: "l9",
+      speaker: _sekou,
+      nko: "ߌ ߣߌ߫ ߖߊ߬ߣߍ߲!",
+      french: "Merci !",
+      nextId: "l10",
+    ),
+    "l10": const DialogueLine(
+      id: "l10",
+      speaker: _moussa,
+      nko: "ߌ ߣߌ߫ ߖߊ߬ߣߍ߲!",
+      french: "Merci ! (il salue Sekou avant de repartir)",
+      nextId: null,
+    ),
+  },
+);
+
+final storyEpisodes = <StoryEpisode>[episode1, episode2];
