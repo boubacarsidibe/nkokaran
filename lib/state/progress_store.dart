@@ -50,6 +50,24 @@ class Progress {
   /// from [completedUnits] since the two tracks don't gate each other.
   List<String> completedEpisodes;
 
+  /// "maninka" / "bambara" / "dioula" — used to pick which dialect variant
+  /// to surface when content offers more than one (feature 28).
+  String preferredDialect;
+
+  /// SM-2-lite spaced-repetition state per letter char — see
+  /// lib/state/spaced_repetition.dart (feature 29).
+  Map<String, Map<String, dynamic>> reviewStates;
+
+  /// Cumulative time spent in lessons/practice, in milliseconds — feeds the
+  /// stats screen (feature 30).
+  int totalTimeMs;
+  int totalAnswered;
+  int totalCorrect;
+
+  /// unitId -> attempts/correct, for the per-unit accuracy breakdown.
+  Map<String, int> unitAttempts;
+  Map<String, int> unitCorrect;
+
   Progress({
     List<String>? completedUnits,
     this.xp = 0,
@@ -69,12 +87,22 @@ class Progress {
     this.sessionsThisWeek = 0,
     this.sessionsWeekKey,
     List<String>? completedEpisodes,
+    this.preferredDialect = "maninka",
+    Map<String, Map<String, dynamic>>? reviewStates,
+    this.totalTimeMs = 0,
+    this.totalAnswered = 0,
+    this.totalCorrect = 0,
+    Map<String, int>? unitAttempts,
+    Map<String, int>? unitCorrect,
   })  : completedUnits = completedUnits ?? [],
         hearts = hearts ?? maxHearts,
         xpHistory = xpHistory ?? {},
         badges = badges ?? [],
         weakLetters = weakLetters ?? [],
-        completedEpisodes = completedEpisodes ?? [];
+        completedEpisodes = completedEpisodes ?? [],
+        reviewStates = reviewStates ?? {},
+        unitAttempts = unitAttempts ?? {},
+        unitCorrect = unitCorrect ?? {};
 
   factory Progress.fromJson(Map<String, dynamic> json) => Progress(
         completedUnits: (json['completedUnits'] as List?)?.cast<String>() ?? [],
@@ -95,6 +123,16 @@ class Progress {
         sessionsThisWeek: json['sessionsThisWeek'] ?? 0,
         sessionsWeekKey: json['sessionsWeekKey'],
         completedEpisodes: (json['completedEpisodes'] as List?)?.cast<String>() ?? [],
+        preferredDialect: json['preferredDialect'] ?? "maninka",
+        reviewStates: (json['reviewStates'] as Map?)?.map(
+              (k, v) => MapEntry(k as String, (v as Map).cast<String, dynamic>()),
+            ) ??
+            {},
+        totalTimeMs: json['totalTimeMs'] ?? 0,
+        totalAnswered: json['totalAnswered'] ?? 0,
+        totalCorrect: json['totalCorrect'] ?? 0,
+        unitAttempts: (json['unitAttempts'] as Map?)?.map((k, v) => MapEntry(k as String, v as int)) ?? {},
+        unitCorrect: (json['unitCorrect'] as Map?)?.map((k, v) => MapEntry(k as String, v as int)) ?? {},
       );
 
   Map<String, dynamic> toJson() => {
@@ -116,6 +154,13 @@ class Progress {
         'sessionsThisWeek': sessionsThisWeek,
         'sessionsWeekKey': sessionsWeekKey,
         'completedEpisodes': completedEpisodes,
+        'preferredDialect': preferredDialect,
+        'reviewStates': reviewStates,
+        'totalTimeMs': totalTimeMs,
+        'totalAnswered': totalAnswered,
+        'totalCorrect': totalCorrect,
+        'unitAttempts': unitAttempts,
+        'unitCorrect': unitCorrect,
       };
 
   Progress copy() => Progress.fromJson(toJson());
@@ -184,6 +229,25 @@ class Progress {
       sessionsThisWeek = 0;
     }
     sessionsThisWeek += 1;
+  }
+
+  /// Records one answered exercise for the stats screen's global and
+  /// per-unit accuracy breakdown.
+  void recordAnswer({required String unitId, required bool correct}) {
+    totalAnswered += 1;
+    unitAttempts[unitId] = (unitAttempts[unitId] ?? 0) + 1;
+    if (correct) {
+      totalCorrect += 1;
+      unitCorrect[unitId] = (unitCorrect[unitId] ?? 0) + 1;
+    }
+  }
+
+  double get accuracy => totalAnswered == 0 ? 0 : totalCorrect / totalAnswered;
+
+  double accuracyForUnit(String unitId) {
+    final attempts = unitAttempts[unitId] ?? 0;
+    if (attempts == 0) return 0;
+    return (unitCorrect[unitId] ?? 0) / attempts;
   }
 }
 

@@ -13,6 +13,7 @@ import 'screens/profile_screen.dart';
 import 'screens/story_list_screen.dart';
 import 'screens/summary_screen.dart';
 import 'state/progress_store.dart';
+import 'state/spaced_repetition.dart';
 import 'theme/app_theme.dart';
 import 'widgets/chest_dialog.dart';
 
@@ -60,6 +61,7 @@ class _NkoKalanRootState extends State<NkoKalanRoot> {
   int _exIndex = 0;
   int _sessionXp = 0;
   int _sessionMistakes = 0;
+  DateTime? _sessionStart;
   dynamic _selected;
   bool _checked = false;
   bool _isCorrect = false;
@@ -106,6 +108,7 @@ class _NkoKalanRootState extends State<NkoKalanRoot> {
       _exIndex = 0;
       _sessionXp = 0;
       _sessionMistakes = 0;
+      _sessionStart = DateTime.now();
       _selected = null;
       _checked = false;
       _isCorrect = false;
@@ -126,6 +129,7 @@ class _NkoKalanRootState extends State<NkoKalanRoot> {
       _exIndex = 0;
       _sessionXp = 0;
       _sessionMistakes = 0;
+      _sessionStart = DateTime.now();
       _selected = null;
       _checked = false;
       _isCorrect = false;
@@ -154,6 +158,36 @@ class _NkoKalanRootState extends State<NkoKalanRoot> {
       _exIndex = 0;
       _sessionXp = 0;
       _sessionMistakes = 0;
+      _sessionStart = DateTime.now();
+      _selected = null;
+      _checked = false;
+      _isCorrect = false;
+      _screen = _Screen.lesson;
+    });
+  }
+
+  void _startDueReview() {
+    if (_progress.hearts <= 0) {
+      _showNoHeartsSnack();
+      return;
+    }
+    final due = dueForReview(_progress, DateTime.now()).map(letterByChar).whereType<NkoLetter>().toList();
+    if (due.isEmpty) return;
+    setState(() {
+      _activeUnit = const NkoUnit(
+        id: "review",
+        title: "Révision espacée",
+        subtitle: "Tes lettres à réviser aujourd'hui",
+        letters: null,
+        pool: null,
+      );
+      _isPractice = true;
+      _isMistakesReview = false;
+      _exercises = buildPracticeExercises(due, allLettersAndDigits, count: due.length.clamp(4, 10));
+      _exIndex = 0;
+      _sessionXp = 0;
+      _sessionMistakes = 0;
+      _sessionStart = DateTime.now();
       _selected = null;
       _checked = false;
       _isCorrect = false;
@@ -183,6 +217,7 @@ class _NkoKalanRootState extends State<NkoKalanRoot> {
     } else {
       ok = (_selected as NkoLetter).char == cur.letter!.char;
     }
+    final now = DateTime.now();
     setState(() {
       _isCorrect = ok;
       _checked = true;
@@ -190,9 +225,11 @@ class _NkoKalanRootState extends State<NkoKalanRoot> {
         _sessionXp += 10;
       } else {
         _sessionMistakes += 1;
-        _progress.loseHeart(DateTime.now());
+        _progress.loseHeart(now);
         if (cur.letter != null) _progress.addWeakLetter(cur.letter!.char);
       }
+      if (cur.letter != null) applyReview(_progress, cur.letter!.char, ok, now);
+      if (_activeUnit != null) _progress.recordAnswer(unitId: _activeUnit!.id, correct: ok);
     });
     _persist();
   }
@@ -238,6 +275,9 @@ Future<void> _finishSession() async {
     _progress.addXp(_sessionXp, now);
     _progress.gems += gemsEarned;
     _progress.recordSessionCompletion(now);
+    if (_sessionStart != null) {
+      _progress.totalTimeMs += now.difference(_sessionStart!).inMilliseconds;
+    }
 
     if (_isMistakesReview) {
       _progress.weakLetters.clear();
@@ -351,6 +391,8 @@ Future<void> _finishSession() async {
           },
           onPractice: _startPractice,
           onPracticeMistakes: _startMistakesPractice,
+          onPracticeReview: _startDueReview,
+          dueReviewCount: dueForReview(_progress, DateTime.now()).length,
           onRefillHearts: _refillHeartsWithGems,
           onBuyStreakFreeze: _buyStreakFreeze,
           onPlayEpisode: _startEpisode,
@@ -408,6 +450,8 @@ class _Shell extends StatelessWidget {
   final VoidCallback onHeartsTap;
   final void Function(NkoUnit) onPractice;
   final VoidCallback onPracticeMistakes;
+  final VoidCallback onPracticeReview;
+  final int dueReviewCount;
   final VoidCallback onRefillHearts;
   final VoidCallback onBuyStreakFreeze;
   final void Function(StoryEpisode) onPlayEpisode;
@@ -420,6 +464,8 @@ class _Shell extends StatelessWidget {
     required this.onHeartsTap,
     required this.onPractice,
     required this.onPracticeMistakes,
+    required this.onPracticeReview,
+    required this.dueReviewCount,
     required this.onRefillHearts,
     required this.onBuyStreakFreeze,
     required this.onPlayEpisode,
@@ -437,6 +483,8 @@ class _Shell extends StatelessWidget {
           progress: progress,
           onPractice: onPractice,
           onPracticeMistakes: onPracticeMistakes,
+          onPracticeReview: onPracticeReview,
+          dueReviewCount: dueReviewCount,
         );
         break;
       case _Tab.story:
