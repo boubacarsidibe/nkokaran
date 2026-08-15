@@ -33,15 +33,18 @@ class HomeScreen extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text("N'Ko Kalan", style: AppText.fraunces(fontSize: 26, letterSpacing: -0.5)),
-                          const SizedBox(height: 2),
-                          Text("Apprends à lire et écrire le ߒߞߏ",
-                              style: AppText.inter(fontSize: 13, color: AppColors.ink.withValues(alpha: 0.65))),
-                        ],
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text("N'Ko Kalan", style: AppText.fraunces(fontSize: 26, letterSpacing: -0.5)),
+                            const SizedBox(height: 2),
+                            Text("Apprends à lire et écrire le ߒߞߏ",
+                                style: AppText.inter(fontSize: 13, color: AppColors.ink.withValues(alpha: 0.65))),
+                          ],
+                        ),
                       ),
+                      const SizedBox(width: 10),
                       Row(
                         children: [
                           _Badge(icon: Icons.military_tech, iconColor: AppColors.gold, label: "Niv. ${levelForXp(progress.xp)}"),
