@@ -15,6 +15,21 @@ class FriendsScreen extends StatefulWidget {
 
 class _FriendsScreenState extends State<FriendsScreen> {
   final _controller = TextEditingController();
+  bool _checking = true;
+  bool _available = false;
+
+  @override
+  void initState() {
+    super.initState();
+    SocialService.instance.ensureReady().then((ok) {
+      if (mounted) {
+        setState(() {
+          _available = ok;
+          _checking = false;
+        });
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -46,7 +61,18 @@ class _FriendsScreenState extends State<FriendsScreen> {
         title: Text("Amis", style: AppText.fraunces(fontSize: 20)),
       ),
       body: SafeArea(
-        child: Center(
+        child: _checking
+            ? const Center(child: CircularProgressIndicator(color: AppColors.indigo))
+            : !_available
+                ? Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Text("Les amis nécessitent une connexion au serveur — indisponible pour l'instant.",
+                          textAlign: TextAlign.center,
+                          style: AppText.inter(fontSize: 13, color: AppColors.ink.withValues(alpha: 0.65))),
+                    ),
+                  )
+                : Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 480),
             child: ListView(
