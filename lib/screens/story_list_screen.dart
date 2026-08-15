@@ -41,11 +41,14 @@ class StoryListScreen extends StatelessWidget {
                     final ep = storyEpisodes[i];
                     final unlocked = i == 0 || progress.completedEpisodes.contains(storyEpisodes[i - 1].id);
                     final done = progress.completedEpisodes.contains(ep.id);
+                    final matchesDialect =
+                        ep.characters.any((c) => c.dialect.label == progress.preferredDialect);
                     return _EpisodeRow(
                       index: i,
                       episode: ep,
                       unlocked: unlocked,
                       done: done,
+                      matchesDialect: matchesDialect,
                       onTap: unlocked ? () => onPlay(ep) : null,
                     );
                   },
@@ -64,9 +67,17 @@ class _EpisodeRow extends StatelessWidget {
   final StoryEpisode episode;
   final bool unlocked;
   final bool done;
+  final bool matchesDialect;
   final VoidCallback? onTap;
 
-  const _EpisodeRow({required this.index, required this.episode, required this.unlocked, required this.done, required this.onTap});
+  const _EpisodeRow({
+    required this.index,
+    required this.episode,
+    required this.unlocked,
+    required this.done,
+    required this.matchesDialect,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -106,8 +117,26 @@ class _EpisodeRow extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text("Épisode ${index + 1} — ${episode.title}",
-                            style: AppText.inter(fontSize: 14, fontWeight: FontWeight.w700)),
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text("Épisode ${index + 1} — ${episode.title}",
+                                  style: AppText.inter(fontSize: 14, fontWeight: FontWeight.w700)),
+                            ),
+                            if (matchesDialect) ...[
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: AppColors.gold,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text("ton dialecte",
+                                    style: AppText.inter(fontSize: 9, fontWeight: FontWeight.w700, color: Colors.white)),
+                              ),
+                            ],
+                          ],
+                        ),
                         Text(episode.subtitle, style: AppText.inter(fontSize: 12, color: AppColors.ink.withValues(alpha: 0.6))),
                       ],
                     ),

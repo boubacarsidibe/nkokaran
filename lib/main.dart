@@ -330,6 +330,11 @@ Future<void> _finishSession() async {
     _persist();
   }
 
+  void _setPreferredDialect(String dialect) {
+    setState(() => _progress.preferredDialect = dialect);
+    _persist();
+  }
+
   void _buyStreakFreeze() {
     if (_progress.gems < streakFreezeCost) return;
     setState(() {
@@ -396,6 +401,7 @@ Future<void> _finishSession() async {
           onRefillHearts: _refillHeartsWithGems,
           onBuyStreakFreeze: _buyStreakFreeze,
           onPlayEpisode: _startEpisode,
+          onDialectChanged: _setPreferredDialect,
         );
       case _Screen.episode:
         return EpisodePlayerScreen(
@@ -455,6 +461,7 @@ class _Shell extends StatelessWidget {
   final VoidCallback onRefillHearts;
   final VoidCallback onBuyStreakFreeze;
   final void Function(StoryEpisode) onPlayEpisode;
+  final void Function(String) onDialectChanged;
 
   const _Shell({
     required this.tab,
@@ -469,6 +476,7 @@ class _Shell extends StatelessWidget {
     required this.onRefillHearts,
     required this.onBuyStreakFreeze,
     required this.onPlayEpisode,
+    required this.onDialectChanged,
   });
 
   @override
@@ -498,6 +506,7 @@ class _Shell extends StatelessWidget {
           progress: progress,
           onRefillHearts: onRefillHearts,
           onBuyStreakFreeze: onBuyStreakFreeze,
+          onDialectChanged: onDialectChanged,
         );
         break;
     }

@@ -11,12 +11,14 @@ class ProfileScreen extends StatelessWidget {
   final Progress progress;
   final VoidCallback onRefillHearts;
   final VoidCallback onBuyStreakFreeze;
+  final void Function(String dialect) onDialectChanged;
 
   const ProfileScreen({
     super.key,
     required this.progress,
     required this.onRefillHearts,
     required this.onBuyStreakFreeze,
+    required this.onDialectChanged,
   });
 
   @override
@@ -200,6 +202,42 @@ class ProfileScreen extends StatelessWidget {
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                           ),
                         ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              _SectionCard(
+                title: "Dialecte préféré",
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text("Utilisé pour mettre en avant le contenu qui correspond à ton dialecte.",
+                        style: AppText.inter(fontSize: 13, color: AppColors.ink.withValues(alpha: 0.7))),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final d in const [
+                          MapEntry("maninka", "Maninka"),
+                          MapEntry("bambara", "Bambara"),
+                          MapEntry("dioula", "Dioula"),
+                        ])
+                          ChoiceChip(
+                            label: Text(d.value, style: AppText.inter(fontSize: 13, fontWeight: FontWeight.w600)),
+                            selected: progress.preferredDialect == d.key,
+                            onSelected: (_) => onDialectChanged(d.key),
+                            selectedColor: AppColors.indigo,
+                            labelStyle: AppText.inter(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: progress.preferredDialect == d.key ? Colors.white : AppColors.ink,
+                            ),
+                            backgroundColor: AppColors.bg,
+                            side: BorderSide(color: progress.preferredDialect == d.key ? AppColors.indigo : AppColors.line),
+                          ),
                       ],
                     ),
                   ],
