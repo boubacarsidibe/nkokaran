@@ -3,9 +3,11 @@ import '../models/nko_data.dart';
 import '../theme/app_theme.dart';
 
 /// Handwriting exercise (feature 18): trace [letter] over a faint guide.
-/// Feedback is a simplified heuristic (stroke count + how much of the
-/// canvas the trace covers) — not real handwriting recognition, which
-/// would need a trained model and reference stroke data per letter.
+/// Feedback is a simplified heuristic — stroke count, how much of the
+/// canvas the trace covers, and whether the first stroke's net movement
+/// trends right-to-left, matching how N'Ko is written — not real
+/// handwriting recognition, which would need a trained model and
+/// reference stroke data per letter.
 class HandwritingCanvas extends StatefulWidget {
   final NkoLetter letter;
   const HandwritingCanvas({super.key, required this.letter});
@@ -39,6 +41,17 @@ class _HandwritingCanvasState extends State<HandwritingCanvas> {
     });
   }
 
+  /// N'Ko is written right-to-left, so a well-formed first stroke should
+  /// have more net leftward movement than rightward. Compares horizontal
+  /// displacement against a small fraction of the canvas width so tiny
+  /// jitter within an otherwise-vertical stroke doesn't count against it.
+  bool _firstStrokeGoesRightToLeft() {
+    final first = _strokes.first;
+    if (first.length < 2) return true;
+    final dx = first.last.dx - first.first.dx;
+    return dx < -_canvasSize.width * 0.05;
+  }
+
   void _checkTrace() {
     if (_strokes.isEmpty) {
       setState(() {
@@ -57,12 +70,15 @@ class _HandwritingCanvasState extends State<HandwritingCanvas> {
       }
     }
     final coverage = ((maxX - minX) * (maxY - minY)) / (_canvasSize.width * _canvasSize.height);
-    final good = coverage > 0.12 && _strokes.length <= 6;
+    final rightToLeft = _firstStrokeGoesRightToLeft();
+    final good = coverage > 0.12 && _strokes.length <= 6 && rightToLeft;
     setState(() {
       _feedbackGood = good;
       _feedback = good
-          ? "Bien tracé — la forme couvre bien l'espace."
-          : "Essaie de tracer une lettre plus grande et plus proche du modèle.";
+          ? "Bien tracé — la forme couvre bien l'espace et suit le bon sens."
+          : (!rightToLeft
+              ? "Le N'Ko s'écrit de droite à gauche — commence ton tracé plus à droite."
+              : "Essaie de tracer une lettre plus grande et plus proche du modèle.");
     });
   }
 
