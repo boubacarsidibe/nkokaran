@@ -23,7 +23,7 @@ class TtsService {
   static final TtsService instance = TtsService._();
 
   static const _djeliaApiKey = String.fromEnvironment('DJELIA_API_KEY');
-  static const _djeliaTtsUrl = 'https://djelia.cloud/api/v2/models/tts';
+  static const _djeliaTtsUrl = 'https://djelia.cloud/api/v1/models/tts';
 
   final FlutterTts _tts = FlutterTts();
   final AudioPlayer _player = AudioPlayer();
