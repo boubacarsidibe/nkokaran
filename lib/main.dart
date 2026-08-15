@@ -12,6 +12,7 @@ import 'screens/practice_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/story_list_screen.dart';
 import 'screens/summary_screen.dart';
+import 'services/notification_service.dart';
 import 'state/progress_store.dart';
 import 'state/spaced_repetition.dart';
 import 'theme/app_theme.dart';
@@ -84,6 +85,7 @@ class _NkoKalanRootState extends State<NkoKalanRoot> {
       _progress = p;
       _ready = true;
     });
+    NotificationService.instance.scheduleDailyReminder();
     _heartTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       setState(() => _progress.regenerateHearts(DateTime.now()));
       ProgressStore.save(_progress);
@@ -195,6 +197,33 @@ class _NkoKalanRootState extends State<NkoKalanRoot> {
     });
   }
 
+  void _startTranslationPractice() {
+    if (_progress.hearts <= 0) {
+      _showNoHeartsSnack();
+      return;
+    }
+    setState(() {
+      _activeUnit = const NkoUnit(
+        id: "translation",
+        title: "Traduction",
+        subtitle: "Mots et phrases dans les deux sens",
+        letters: null,
+        pool: null,
+      );
+      _isPractice = true;
+      _isMistakesReview = false;
+      _exercises = shuffle(translationExercises);
+      _exIndex = 0;
+      _sessionXp = 0;
+      _sessionMistakes = 0;
+      _sessionStart = DateTime.now();
+      _selected = null;
+      _checked = false;
+      _isCorrect = false;
+      _screen = _Screen.lesson;
+    });
+  }
+
   void _showNoHeartsSnack() {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text("Plus de cœurs pour l'instant — attends qu'ils se régénèrent ou utilise des gemmes.")),
@@ -276,7 +305,7 @@ Future<void> _finishSession() async {
     _progress.gems += gemsEarned;
     _progress.recordSessionCompletion(now);
     if (_sessionStart != null) {
-      _progress.totalTimeMs += now.difference(_sessionStart!).inMilliseconds;
+      _progress.recordStudyTime(now.difference(_sessionStart!).inMilliseconds, now);
     }
 
     if (_isMistakesReview) {
@@ -398,6 +427,7 @@ Future<void> _finishSession() async {
           onPracticeMistakes: _startMistakesPractice,
           onPracticeReview: _startDueReview,
           dueReviewCount: dueForReview(_progress, DateTime.now()).length,
+          onPracticeTranslation: _startTranslationPractice,
           onRefillHearts: _refillHeartsWithGems,
           onBuyStreakFreeze: _buyStreakFreeze,
           onPlayEpisode: _startEpisode,
@@ -458,6 +488,7 @@ class _Shell extends StatelessWidget {
   final VoidCallback onPracticeMistakes;
   final VoidCallback onPracticeReview;
   final int dueReviewCount;
+  final VoidCallback onPracticeTranslation;
   final VoidCallback onRefillHearts;
   final VoidCallback onBuyStreakFreeze;
   final void Function(StoryEpisode) onPlayEpisode;
@@ -473,6 +504,7 @@ class _Shell extends StatelessWidget {
     required this.onPracticeMistakes,
     required this.onPracticeReview,
     required this.dueReviewCount,
+    required this.onPracticeTranslation,
     required this.onRefillHearts,
     required this.onBuyStreakFreeze,
     required this.onPlayEpisode,
@@ -493,6 +525,7 @@ class _Shell extends StatelessWidget {
           onPracticeMistakes: onPracticeMistakes,
           onPracticeReview: onPracticeReview,
           dueReviewCount: dueReviewCount,
+          onPracticeTranslation: onPracticeTranslation,
         );
         break;
       case _Tab.story:
