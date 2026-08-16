@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/nko_data.dart';
+import '../state/challenges.dart';
 import '../state/progress_store.dart';
 import '../theme/app_theme.dart';
 import '../widgets/cloth_border.dart';
@@ -32,15 +33,18 @@ class HomeScreen extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text("N'Ko Kalan", style: AppText.fraunces(fontSize: 26, letterSpacing: -0.5)),
-                          const SizedBox(height: 2),
-                          Text("Apprends à lire et écrire le ߒߞߏ",
-                              style: AppText.inter(fontSize: 13, color: AppColors.ink.withOpacity(0.65))),
-                        ],
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text("N'Ko Kalan", style: AppText.fraunces(fontSize: 26, letterSpacing: -0.5)),
+                            const SizedBox(height: 2),
+                            Text("Apprends à lire et écrire le ߒߞߏ",
+                                style: AppText.inter(fontSize: 13, color: AppColors.ink.withValues(alpha: 0.65))),
+                          ],
+                        ),
                       ),
+                      const SizedBox(width: 10),
                       Row(
                         children: [
                           _Badge(icon: Icons.military_tech, iconColor: AppColors.gold, label: "Niv. ${levelForXp(progress.xp)}"),
@@ -61,6 +65,10 @@ class HomeScreen extends StatelessWidget {
                       ),
                     ],
                   ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(22, 14, 22, 0),
+                  child: _ChallengesCard(progress: progress),
                 ),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 40),
@@ -103,6 +111,77 @@ class _Badge extends StatelessWidget {
           Text(label, style: AppText.inter(fontSize: 13, fontWeight: FontWeight.w600)),
         ],
       ),
+    );
+  }
+}
+
+/// Daily + weekly challenge progress, rotated deterministically by date —
+/// see [dailyChallengeFor]/[weeklyChallengeFor].
+class _ChallengesCard extends StatelessWidget {
+  final Progress progress;
+  const _ChallengesCard({required this.progress});
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final daily = dailyChallengeFor(now);
+    final weekly = weeklyChallengeFor(now);
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        border: Border.all(color: AppColors.line),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _ChallengeRow(icon: Icons.today, label: daily.title, current: daily.progressFor(progress), target: daily.target),
+          const SizedBox(height: 12),
+          _ChallengeRow(
+              icon: Icons.calendar_view_week, label: weekly.title, current: weekly.progressFor(progress), target: weekly.target),
+        ],
+      ),
+    );
+  }
+}
+
+class _ChallengeRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final int current;
+  final int target;
+  const _ChallengeRow({required this.icon, required this.label, required this.current, required this.target});
+
+  @override
+  Widget build(BuildContext context) {
+    final done = current >= target;
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: done ? AppColors.green : AppColors.gold),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: AppText.inter(fontSize: 13, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 5),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: LinearProgressIndicator(
+                  value: (current / target).clamp(0, 1),
+                  minHeight: 7,
+                  backgroundColor: AppColors.lockedNode,
+                  valueColor: AlwaysStoppedAnimation(done ? AppColors.green : AppColors.gold),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 10),
+        Text("${current.clamp(0, target)}/$target",
+            style: AppText.inter(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.ink.withValues(alpha: 0.65))),
+      ],
     );
   }
 }
@@ -192,7 +271,7 @@ class _UnitNode extends StatelessWidget {
         color: nodeColor,
         shape: BoxShape.circle,
         boxShadow: isCurrent
-            ? [BoxShadow(color: AppColors.gold.withOpacity(0.25), blurRadius: 0, spreadRadius: 6)]
+            ? [BoxShadow(color: AppColors.gold.withValues(alpha: 0.25), blurRadius: 0, spreadRadius: 6)]
             : [const BoxShadow(color: Color(0x26000000), offset: Offset(0, 3))],
       ),
       alignment: Alignment.center,
@@ -210,7 +289,7 @@ class _UnitNode extends StatelessWidget {
           const SizedBox(height: 1),
           Text(unit.subtitle,
               textAlign: alignLeft ? TextAlign.left : TextAlign.right,
-              style: AppText.inter(fontSize: 11, color: AppColors.ink.withOpacity(0.6))),
+              style: AppText.inter(fontSize: 11, color: AppColors.ink.withValues(alpha: 0.6))),
         ],
       ),
     );
