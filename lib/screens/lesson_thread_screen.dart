@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../services/social_service.dart';
 import '../theme/app_theme.dart';
@@ -127,7 +128,12 @@ class _LessonThreadScreenState extends State<LessonThreadScreen> {
                                   style: IconButton.styleFrom(backgroundColor: AppColors.indigo),
                                   icon: const Icon(Icons.send, color: Colors.white),
                                   onPressed: () async {
-                                    await SocialService.instance.postToThread(widget.unitId, "Kalanden", _controller.text);
+                                    final name = FirebaseAuth.instance.currentUser?.displayName;
+                                    await SocialService.instance.postToThread(
+                                      widget.unitId,
+                                      (name == null || name.isEmpty) ? "Kalanden" : name,
+                                      _controller.text,
+                                    );
                                     _controller.clear();
                                   },
                                 ),

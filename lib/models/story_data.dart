@@ -321,7 +321,135 @@ const episode2 = StoryEpisode(
   },
 );
 
-final storyEpisodes = <StoryEpisode>[episode1, episode2];
+/// ------------------------------------------------------------------
+/// Episode 3 — "Encore des mangues !"
+/// A deliberate review episode: Sekou comes back to buy more mangoes and
+/// runs into Moussa again. Every N'Ko line here is reused verbatim
+/// (whole-line, never split or recombined) from episode 1 or episode 2
+/// rather than authoring new N'Ko text — same accuracy reasoning as
+/// episode 2's header comment. The branch reuses episode 1's "quelques
+/// unes / beaucoup" choice instead of episode 2's digit choice, so the
+/// episode isn't just a reshuffle of episode 2.
+/// ------------------------------------------------------------------
+
+const episode3 = StoryEpisode(
+  id: "ep3",
+  title: "Encore des mangues !",
+  subtitle: "Sekou retourne au marché voir Moussa",
+  characters: [_sekou, _moussa],
+  startId: "l1",
+  quiz: [
+    ComprehensionQuestion(
+      question: "Pourquoi Sekou retourne-t-il voir Moussa ?",
+      correctLabel: "Pour acheter encore des mangues",
+      options: ["Pour acheter encore des mangues", "Pour saluer Aïcha", "Pour apprendre les chiffres", "Pour vendre des mangues"],
+    ),
+    ComprehensionQuestion(
+      question: "Comment dit-on « merci » dans ce dialogue ?",
+      correctLabel: "ߌ ߣߌ߫ ߖߊ߬ߣߍ߲ (i ni sɛ̀nɛ / merci)",
+      options: [
+        "ߌ ߣߌ߫ ߖߊ߬ߣߍ߲ (i ni sɛ̀nɛ / merci)",
+        "ߌ ߣߌ߫ ߛߏ߬ (bonsoir)",
+        "ߊ߲ ߠߊ߫ (à nous)",
+        "ߒߤߏ߲߬ (non)",
+      ],
+    ),
+    ComprehensionQuestion(
+      question: "Que dit Moussa pour inviter Sekou à le suivre ?",
+      correctLabel: "ߊ߬ ߘߌ߫ ߣߊ߬ ߒ ߝߍ߬ (viens avec moi)",
+      options: [
+        "ߊ߬ ߘߌ߫ ߣߊ߬ ߒ ߝߍ߬ (viens avec moi)",
+        "ߌ ߣߌ߫ ߛߐ߬ߘߐ߲߬ (bonjour)",
+        "ߌ ߣߌ߫ ߖߊ߬ߣߍ߲ (merci)",
+        "ߡߊ߲߬ߜ ߟߎ߬ ߦߋ߲߬ (les mangues sont là)",
+      ],
+    ),
+  ],
+  lines: {
+    "l1": DialogueLine(
+      id: "l1",
+      speaker: _moussa,
+      nko: "ߌ ߣߌ߫ ߛߐ߬ߘߐ߲߬!",
+      french: "Bonjour !",
+      nextId: "l2",
+    ),
+    "l2": DialogueLine(
+      id: "l2",
+      speaker: _sekou,
+      nko: "ߌ ߣߌ߫ ߛߐ߬ߘߐ߲߬! ߌ ߦߋ߫ ߘߌ߬ ߟߊ߫؟",
+      french: "Bonjour ! Comment vas-tu ?",
+      nextId: "l3",
+    ),
+    "l3": DialogueLine(
+      id: "l3",
+      speaker: _moussa,
+      nko: "ߒ ߦߋ߫ ߤߋߙߋ߲ ߠߋ߬ ߘߌ߫.",
+      french: "Je vais bien.",
+      nextId: "l4",
+    ),
+    "l4": DialogueLine(
+      id: "l4",
+      speaker: _sekou,
+      nko: "ߒ ߧߋ߫ ߡߊ߲߬ߜ ߠߎ߬ ߝߍ߬.",
+      french: "Je cherche des mangues.",
+      nextId: "l5",
+    ),
+    "l5": DialogueLine(
+      id: "l5",
+      speaker: _moussa,
+      nko: "ߡߊ߲߬ߜ ߟߎ߬ ߦߋ߲߬!",
+      french: "Les mangues sont là !",
+      nextId: "choice1",
+    ),
+    "choice1": DialogueLine(
+      id: "choice1",
+      speaker: _moussa,
+      nko: "ߒ ߦߴߏ߬ ߟߎ߬ ߘߊ߫ ߦߋ߲߬. ߌ ߦߋ߫ ߖߋ߬ߟߌ ߛߌ߬ߡߛߊ߬؟",
+      french: "J'en ai ici. Tu en veux combien ?",
+      choices: [
+        DialogueChoice(label: "« Quelques-unes seulement »", nextId: "l6a"),
+        DialogueChoice(label: "« Beaucoup, pour toute la famille »", nextId: "l6b"),
+      ],
+    ),
+    "l6a": DialogueLine(
+      id: "l6a",
+      speaker: _sekou,
+      nko: "ߘߋ߲ߘߋ߲ ߟߋ߬ ߘߐ߫, ߒ ߞߊ߬ ߒ ߖߘߍ߬ ߦߴߏ߬ ߦߋ߫.",
+      french: "Juste quelques-unes, c'est pour moi.",
+      nextId: "l7",
+    ),
+    "l6b": DialogueLine(
+      id: "l6b",
+      speaker: _sekou,
+      nko: "ߛߌߦߊ ߟߋ߬, ߒ ߓߊߘߋ߲ ߠߎ߬ ߦߋ߫ ߣߌ߲߬.",
+      french: "Beaucoup, c'est pour toute ma famille.",
+      nextId: "l7",
+    ),
+    "l7": DialogueLine(
+      id: "l7",
+      speaker: _moussa,
+      nko: "߁, ߂, ߃, ߄, ߅...",
+      french: "Un, deux, trois, quatre, cinq... (il recompte les mangues avec Sekou)",
+      nextId: "l8",
+    ),
+    "l8": DialogueLine(
+      id: "l8",
+      speaker: _sekou,
+      nko: "ߌ ߣߌ߫ ߖߊ߬ߣߍ߲!",
+      french: "Merci !",
+      nextId: "l9",
+    ),
+    "l9": DialogueLine(
+      id: "l9",
+      speaker: _moussa,
+      nko: "ߊ߬ ߘߌ߫ ߣߊ߬ ߒ ߝߍ߬.",
+      french: "D'accord, viens avec moi.",
+      nextId: null,
+    ),
+  },
+);
+
+final storyEpisodes = <StoryEpisode>[episode1, episode2, episode3];
 
 /// Bidirectional "que veut dire / comment dit-on" drills built from an
 /// episode's own dialogue lines — feature 10 ("chaque épisode introduit du

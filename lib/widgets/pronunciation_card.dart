@@ -33,18 +33,24 @@ class _PronunciationCardState extends State<PronunciationCard> {
       _heard = "";
       _matched = null;
     });
-    await SttService.instance.listen(
-      onResult: (text, isFinal) {
-        if (!mounted) return;
-        setState(() => _heard = text);
-        if (isFinal) {
-          setState(() {
-            _checking = false;
-            _matched = roughlyMatches(text, widget.exercise.targetPhonetic!);
-          });
-        }
-      },
-    );
+    try {
+      await SttService.instance.listen(
+        onResult: (text, isFinal) {
+          if (!mounted) return;
+          setState(() => _heard = text);
+          if (isFinal) {
+            setState(() {
+              _checking = false;
+              _matched = roughlyMatches(text, widget.exercise.targetPhonetic!);
+            });
+          }
+        },
+      );
+    } catch (_) {
+      // Mic permission denied mid-session, engine error, etc. — don't leave
+      // the button stuck in a permanently "listening" state.
+      if (mounted) setState(() => _checking = false);
+    }
   }
 
   @override

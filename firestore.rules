@@ -11,6 +11,10 @@ service cloud.firestore {
       match /friends/{friendUid} {
         allow read, write: if isSignedIn() && isOwner(uid);
       }
+
+      match /progress/{docId} {
+        allow read, write: if isSignedIn() && isOwner(uid);
+      }
     }
 
     match /lessonThreads/{unitId}/posts/{postId} {
@@ -18,13 +22,28 @@ service cloud.firestore {
       allow create: if isSignedIn()
         && request.resource.data.author is string
         && request.resource.data.text is string
-        && request.resource.data.text.size() > 0;
+        && request.resource.data.text.size() > 0
+        && request.resource.data.authorUid == request.auth.uid;
       allow update, delete: if false;
     }
 
     match /clubs/{clubId} {
       allow read: if isSignedIn();
-      allow write: if isSignedIn();
+
+      // Only lets the caller create a fresh club with default values.
+      allow create: if isSignedIn()
+        && request.resource.data.name is string
+        && request.resource.data.weeklyGoalXp is number
+        && request.resource.data.members is map;
+
+      // Joining/contributing only ever touches the caller's own entry in
+      // `members`; nobody can rename a club, change its goal, or edit
+      // another member's XP.
+      allow update: if isSignedIn()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members'])
+        && request.resource.data.members.diff(resource.data.members).affectedKeys().hasOnly([request.auth.uid]);
+
+      allow delete: if false;
     }
   }
 }

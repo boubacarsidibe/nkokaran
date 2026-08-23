@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../services/social_service.dart';
 import '../state/progress_store.dart';
@@ -10,6 +11,9 @@ const _botNames = [
   "Boubacar", "Kadiatou", "Ismaël", "Djénéba", "Moussa",
   "Nabintou", "Yaya",
 ];
+
+/// Visuals for each [leagueTierNames] entry, lowest tier first.
+const _tierColors = [AppColors.clay, Color(0xFF8C97A8), AppColors.gold, AppColors.indigo, Color(0xFF6FC3D6)];
 
 int weeklyXpOf(Progress progress) {
   final now = DateTime.now();
@@ -46,10 +50,12 @@ class _LeagueScreenState extends State<LeagueScreen> {
   Future<void> _init() async {
     final available = await SocialService.instance.ensureReady();
     if (available) {
+      final name = FirebaseAuth.instance.currentUser?.displayName;
       await SocialService.instance.upsertProfile(
-        displayName: "Kalanden",
+        displayName: (name == null || name.isEmpty) ? "Kalanden" : name,
         xp: widget.progress.xp,
         weeklyXp: weeklyXpOf(widget.progress),
+        leagueTier: widget.progress.leagueTier,
       );
     }
     if (mounted) {
@@ -65,6 +71,11 @@ class _LeagueScreenState extends State<LeagueScreen> {
     if (_checkingBackend) {
       return const Center(child: CircularProgressIndicator(color: AppColors.indigo));
     }
+    final tier = widget.progress.leagueTier;
+    final tierColor = _tierColors[tier];
+    final isTopTier = tier == leagueTierNames.length - 1;
+    final promotionProgress = (widget.progress.leagueWeekXp / leaguePromotionXp).clamp(0, 1).toDouble();
+
     return SafeArea(
       child: Center(
         child: ConstrainedBox(
@@ -83,9 +94,9 @@ class _LeagueScreenState extends State<LeagueScreen> {
                         children: [
                           Row(
                             children: [
-                              const Icon(Icons.emoji_events, color: AppColors.clay, size: 22),
+                              Icon(Icons.emoji_events, color: tierColor, size: 22),
                               const SizedBox(width: 8),
-                              Text("Ligue Bronze", style: AppText.fraunces(fontSize: 24)),
+                              Text("Ligue ${leagueTierNames[tier]}", style: AppText.fraunces(fontSize: 24)),
                             ],
                           ),
                           const SizedBox(height: 4),
@@ -95,6 +106,26 @@ class _LeagueScreenState extends State<LeagueScreen> {
                                 : "Classement simulé (hors ligne) — top 3 promus.",
                             style: AppText.inter(fontSize: 13, color: AppColors.ink.withValues(alpha: 0.65)),
                           ),
+                          const SizedBox(height: 10),
+                          if (isTopTier)
+                            Text("Ligue la plus haute — continue pour t'y maintenir !",
+                                style: AppText.inter(fontSize: 12, fontWeight: FontWeight.w600, color: tierColor))
+                          else ...[
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(6),
+                              child: LinearProgressIndicator(
+                                value: promotionProgress,
+                                minHeight: 8,
+                                backgroundColor: AppColors.lockedNode,
+                                valueColor: AlwaysStoppedAnimation(tierColor),
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              "${widget.progress.leagueWeekXp}/$leaguePromotionXp XP pour monter en ${leagueTierNames[tier + 1]}",
+                              style: AppText.inter(fontSize: 11, color: AppColors.ink.withValues(alpha: 0.6)),
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -107,7 +138,9 @@ class _LeagueScreenState extends State<LeagueScreen> {
                 ),
               ),
               Expanded(
-                child: _backendAvailable ? _RealLeagueList(progress: widget.progress) : _SimulatedLeagueList(progress: widget.progress),
+                child: _backendAvailable
+                    ? _RealLeagueList(progress: widget.progress, tier: tier)
+                    : _SimulatedLeagueList(progress: widget.progress, tier: tier),
               ),
             ],
           ),
@@ -119,13 +152,20 @@ class _LeagueScreenState extends State<LeagueScreen> {
 
 class _RealLeagueList extends StatelessWidget {
   final Progress progress;
-  const _RealLeagueList({required this.progress});
+  final int tier;
+  const _RealLeagueList({required this.progress, required this.tier});
 
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<LeagueMember>>(
-      stream: SocialService.instance.weeklyLeagueStream(),
+      stream: SocialService.instance.weeklyLeagueStream(tier),
       builder: (context, snap) {
+        if (snap.hasError) {
+          return Center(
+            child: Text("Classement indisponible pour l'instant — vérifie ta connexion.",
+                textAlign: TextAlign.center, style: AppText.inter(fontSize: 13, color: AppColors.ink.withValues(alpha: 0.6))),
+          );
+        }
         if (!snap.hasData) return const Center(child: CircularProgressIndicator(color: AppColors.indigo));
         final rows = snap.data!;
         if (rows.isEmpty) {
@@ -145,15 +185,19 @@ class _RealLeagueList extends StatelessWidget {
 
 class _SimulatedLeagueList extends StatelessWidget {
   final Progress progress;
-  const _SimulatedLeagueList({required this.progress});
+  final int tier;
+  const _SimulatedLeagueList({required this.progress, required this.tier});
 
   @override
   Widget build(BuildContext context) {
     final myXp = weeklyXpOf(progress);
     // Seeded so the board doesn't reshuffle on every rebuild this session.
     final rng = Random(myXp + progress.streak);
+    // Higher tiers face stiffer simulated competition, so climbing the
+    // ladder actually feels harder — not just a cosmetic label change.
+    final tierFloor = tier * 30;
     final rows = <({String label, int xp, String uid})>[
-      for (final name in _botNames) (label: name, xp: 8 + rng.nextInt(85), uid: name),
+      for (final name in _botNames) (label: name, xp: tierFloor + 8 + rng.nextInt(85), uid: name),
       (label: "Toi", xp: myXp, uid: "Toi"),
     ];
     return _LeagueRows(rows: rows, myUid: "Toi");

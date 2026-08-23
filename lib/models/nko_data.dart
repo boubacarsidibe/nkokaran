@@ -99,6 +99,42 @@ final units = <NkoUnit>[
   NkoUnit(id: "u5", title: "Consonnes IV", subtitle: "gba · nya · wa · ya · n", letters: consD, pool: allLetters),
   const NkoUnit(id: "u6", title: "Les chiffres", subtitle: "de 0 à 9", letters: digits, pool: digits),
   const NkoUnit(id: "u7", title: "Ton premier mot", subtitle: "ߒߞߏ — le nom de l'écriture", letters: null, pool: null),
+  const NkoUnit(id: "u8", title: "Salutations", subtitle: "Bonjour · merci · mangue", letters: null, pool: null),
+  const NkoUnit(id: "u9", title: "Au marché", subtitle: "Le dialogue de Sekou et Aïcha", letters: null, pool: null),
+];
+
+/// A short phrase or word — used for vocabulary units (as opposed to the
+/// single-letter [NkoLetter] units above). [phonetic] is a Latin-alphabet
+/// approximation fed to TTS (see TtsService); left null when no verified
+/// transliteration exists for the phrase, in which case the pronunciation
+/// drill is simply skipped rather than guessing one.
+class VocabWord {
+  final String nko;
+  final String? phonetic;
+  final String meaning;
+  const VocabWord({required this.nko, this.phonetic, required this.meaning});
+}
+
+/// Vocabulary for unit u8 — reuses exactly the greetings/words already
+/// verified elsewhere in the app (the audio glossary and the story
+/// episodes) rather than authoring new N'Ko text, for the same accuracy
+/// reasons noted on [translationExercises].
+const salutationsWords = <VocabWord>[
+  VocabWord(nko: "ߌ ߣߌ߫ ߛߐ߬ߘߐ߲߬", phonetic: "i ni sɔgɔma", meaning: "Bonjour"),
+  VocabWord(nko: "ߌ ߣߌ߫ ߖߊ߬ߣߍ߲", phonetic: "i ni sɛnɛ", meaning: "Merci"),
+  VocabWord(nko: "ߡߊ߲߬ߜ", phonetic: "mangɛ", meaning: "Mangue"),
+];
+
+/// Vocabulary for unit u9 — three clean, single-sentence dialogue lines
+/// reused verbatim from episode1/episode2 in story_data.dart (skipping
+/// lines that combine two sentences or carry a stage direction, same filter
+/// [buildVocabQuestions] applies). No Latin phonetic was ever authored for
+/// these full sentences, so [VocabWord.phonetic] is left null here rather
+/// than inventing a transliteration.
+const marketWords = <VocabWord>[
+  VocabWord(nko: "ߒ ߧߋ߫ ߡߊ߲߬ߜ ߠߎ߬ ߝߍ߬.", meaning: "Je cherche des mangues."),
+  VocabWord(nko: "ߡߊ߲߬ߜ ߟߎ߬ ߦߋ߲߬!", meaning: "Les mangues sont là !"),
+  VocabWord(nko: "ߊ߬ ߘߌ߫ ߣߊ߬ ߒ ߝߍ߬.", meaning: "D'accord, viens avec moi."),
 ];
 
 /// ------------------------------------------------------------------
@@ -164,7 +200,7 @@ class Exercise {
     required QuizDirection dir,
     required NkoLetter l,
     required List<NkoLetter> opts,
-    String? explanation,
+    this.explanation,
   })  : type = ExerciseType.quiz,
         letter = l,
         direction = dir,
@@ -175,28 +211,22 @@ class Exercise {
         matchLetters = null,
         wordAnswer = null,
         wordTiles = null,
-        explanation = explanation,
         spokenText = null,
         targetWord = null,
         targetPhonetic = null;
 
   Exercise.quizText({
-    required String question,
-    String? displayChar,
-    required String correctLabel,
-    required List<String> options,
-    String? explanation,
+    required this.question,
+    this.displayChar,
+    required this.correctLabel,
+    required List<String> this.options,
+    this.explanation,
   })  : type = ExerciseType.quiz,
         letter = null,
         direction = QuizDirection.text,
-        question = question,
-        displayChar = displayChar,
-        correctLabel = correctLabel,
-        options = options,
         matchLetters = null,
         wordAnswer = null,
         wordTiles = null,
-        explanation = explanation,
         spokenText = null,
         targetWord = null,
         targetPhonetic = null;
@@ -218,13 +248,12 @@ class Exercise {
         targetPhonetic = null;
 
   Exercise.wordBank({
-    required String question,
+    required this.question,
     required List<String> answer,
     required List<String> tiles,
   })  : type = ExerciseType.wordBank,
         letter = null,
         direction = null,
-        question = question,
         displayChar = null,
         correctLabel = null,
         options = null,
@@ -240,7 +269,7 @@ class Exercise {
   /// they heard among [opts] — feature 16 (listening exercises).
   Exercise.listening({
     required NkoLetter l,
-    required String spokenText,
+    required this.spokenText,
     required List<NkoLetter> opts,
   })  : type = ExerciseType.listening,
         letter = l,
@@ -253,15 +282,14 @@ class Exercise {
         wordAnswer = null,
         wordTiles = null,
         explanation = null,
-        spokenText = spokenText,
         targetWord = null,
         targetPhonetic = null;
 
   /// Shows [targetWord] and records the learner reading it aloud, compared
   /// best-effort against [targetPhonetic] — feature 17 (pronunciation).
   Exercise.pronunciation({
-    required String targetWord,
-    required String targetPhonetic,
+    required this.targetWord,
+    required this.targetPhonetic,
   })  : type = ExerciseType.pronunciation,
         letter = null,
         direction = null,
@@ -273,9 +301,7 @@ class Exercise {
         wordAnswer = null,
         wordTiles = null,
         explanation = null,
-        spokenText = null,
-        targetWord = targetWord,
-        targetPhonetic = targetPhonetic;
+        spokenText = null;
 
   /// Free-hand tracing of [letter] on a canvas — feature 18 (handwriting).
   Exercise.handwriting(NkoLetter l)
@@ -297,14 +323,13 @@ class Exercise {
   /// Plays [spokenText] via TTS and asks the learner to reconstruct it from
   /// letter tiles — feature 20 (dictation).
   Exercise.dictation({
-    required String question,
-    required String spokenText,
+    required this.question,
+    required this.spokenText,
     required List<String> answer,
     required List<String> tiles,
   })  : type = ExerciseType.dictation,
         letter = null,
         direction = null,
-        question = question,
         displayChar = null,
         correctLabel = null,
         options = null,
@@ -312,7 +337,6 @@ class Exercise {
         wordAnswer = answer,
         wordTiles = tiles,
         explanation = null,
-        spokenText = spokenText,
         targetWord = null,
         targetPhonetic = null;
 }
@@ -398,6 +422,12 @@ List<NkoLetter> buildOptions(NkoLetter correct, List<NkoLetter> pool) {
 }
 
 List<Exercise> buildExercises(NkoUnit unit) {
+  if (unit.id == "u9") {
+    return buildVocabExercises(marketWords);
+  }
+  if (unit.id == "u8") {
+    return buildVocabExercises(salutationsWords);
+  }
   if (unit.id == "u7") {
     return [
       Exercise.wordIntro(),
@@ -478,6 +508,53 @@ List<Exercise> buildExercises(NkoUnit unit) {
   // Mirrors Duolingo's lesson shape: teach each item, a matching-pairs
   // checkpoint, a listening + handwriting rep, then mixed recall questions.
   return [...intros, matchStep, listeningStep, handwritingStep, ...shuffledQuizzes];
+}
+
+const _extraMeaningDistractors = ["École", "Au revoir", "Combien ?", "Argent"];
+const _extraNkoDistractors = ["ߒߞߏ", "߃", "߅", "ߊ"];
+
+/// Word-level lesson shape for a [VocabWord] unit (as opposed to
+/// [buildExercises]'s letter-level shape): teach each phrase, drill
+/// reconstructing and pronouncing it, then mixed translation recall in both
+/// directions — mirrors [translationExercises]'s question style.
+List<Exercise> buildVocabExercises(List<VocabWord> words) {
+  final drills = <Exercise>[Exercise.wordIntro()];
+  for (final w in words) {
+    final tiles = w.nko.split(' ');
+    drills.add(Exercise.wordBank(
+      question: "Reconstitue « ${w.meaning} » en touchant les mots dans le bon ordre",
+      answer: tiles,
+      tiles: shuffle(tiles),
+    ));
+    if (w.phonetic != null) {
+      drills.add(Exercise.pronunciation(targetWord: w.nko, targetPhonetic: w.phonetic!));
+    }
+  }
+
+  final quizzes = <Exercise>[];
+  for (final w in words) {
+    final meaningPool = shuffle([
+      ...words.where((x) => x.meaning != w.meaning).map((x) => x.meaning),
+      ..._extraMeaningDistractors,
+    ]).take(3).toList();
+    quizzes.add(Exercise.quizText(
+      question: "Que veut dire « ${w.nko} » ?",
+      correctLabel: w.meaning,
+      options: shuffle([w.meaning, ...meaningPool]),
+    ));
+
+    final nkoPool = shuffle([
+      ...words.where((x) => x.nko != w.nko).map((x) => x.nko),
+      ..._extraNkoDistractors,
+    ]).take(3).toList();
+    quizzes.add(Exercise.quizText(
+      question: "Comment dit-on « ${w.meaning} » en N'Ko ?",
+      correctLabel: w.nko,
+      options: shuffle([w.nko, ...nkoPool]),
+    ));
+  }
+
+  return [...drills, ...shuffle(quizzes)];
 }
 
 /// Builds a fresh, endless stream of review exercises for the Practice hub —
