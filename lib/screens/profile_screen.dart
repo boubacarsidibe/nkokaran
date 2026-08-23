@@ -1,10 +1,13 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../models/badges.dart';
 import '../models/nko_data.dart';
+import '../services/auth_service.dart';
 import '../state/progress_store.dart';
 import '../theme/app_theme.dart';
 import 'club_screen.dart';
 import 'glossary_screen.dart';
+import 'history_screen.dart';
 import 'stats_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
@@ -13,6 +16,7 @@ class ProfileScreen extends StatelessWidget {
   final VoidCallback onBuyStreakFreeze;
   final void Function(String dialect) onDialectChanged;
   final void Function(NkoUnit unit) onPracticeUnit;
+  final Future<bool> Function() onManualSync;
 
   const ProfileScreen({
     super.key,
@@ -21,6 +25,7 @@ class ProfileScreen extends StatelessWidget {
     required this.onBuyStreakFreeze,
     required this.onDialectChanged,
     required this.onPracticeUnit,
+    required this.onManualSync,
   });
 
   @override
@@ -32,6 +37,8 @@ class ProfileScreen extends StatelessWidget {
     final maxXp = (last7.fold<int>(0, (a, b) => a > b ? a : b)).clamp(1, 1 << 30);
     final level = levelForXp(progress.xp);
     final nextLevelXp = xpForNextLevel(progress.xp);
+    final displayName = FirebaseAuth.instance.currentUser?.displayName;
+    final name = (displayName == null || displayName.isEmpty) ? "Kalanden" : displayName;
 
     return SafeArea(
       child: Center(
@@ -69,7 +76,7 @@ class ProfileScreen extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text("Kalanden", style: AppText.fraunces(fontSize: 22)),
+                        Text(name, style: AppText.fraunces(fontSize: 22)),
                         Text("${progress.completedUnits.length} / ${units.length} leçons terminées",
                             style: AppText.inter(fontSize: 13, color: AppColors.ink.withValues(alpha: 0.65))),
                       ],
@@ -278,69 +285,32 @@ class ProfileScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 16),
-              Material(
-                color: AppColors.card,
-                borderRadius: BorderRadius.circular(16),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(16),
-                  onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const GlossaryScreen())),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                    decoration: BoxDecoration(border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(16)),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.menu_book, color: AppColors.indigo, size: 20),
-                        const SizedBox(width: 12),
-                        Expanded(child: Text("Glossaire audio", style: AppText.inter(fontSize: 14, fontWeight: FontWeight.w700))),
-                        const Icon(Icons.chevron_right, color: AppColors.ink),
-                      ],
-                    ),
-                  ),
-                ),
+              _ProfileNavTile(
+                icon: Icons.menu_book,
+                label: "Glossaire audio",
+                onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const GlossaryScreen())),
               ),
               const SizedBox(height: 10),
-              Material(
-                color: AppColors.card,
-                borderRadius: BorderRadius.circular(16),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(16),
-                  onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                      builder: (_) => StatsScreen(progress: progress, onPracticeUnit: onPracticeUnit))),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                    decoration: BoxDecoration(border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(16)),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.bar_chart, color: AppColors.indigo, size: 20),
-                        const SizedBox(width: 12),
-                        Expanded(child: Text("Statistiques", style: AppText.inter(fontSize: 14, fontWeight: FontWeight.w700))),
-                        const Icon(Icons.chevron_right, color: AppColors.ink),
-                      ],
-                    ),
-                  ),
-                ),
+              _ProfileNavTile(
+                icon: Icons.auto_stories,
+                label: "Histoire du N'Ko",
+                onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const HistoryScreen())),
               ),
               const SizedBox(height: 10),
-              Material(
-                color: AppColors.card,
-                borderRadius: BorderRadius.circular(16),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(16),
-                  onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ClubScreen())),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                    decoration: BoxDecoration(border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(16)),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.groups, color: AppColors.indigo, size: 20),
-                        const SizedBox(width: 12),
-                        Expanded(child: Text("Club d'apprentissage", style: AppText.inter(fontSize: 14, fontWeight: FontWeight.w700))),
-                        const Icon(Icons.chevron_right, color: AppColors.ink),
-                      ],
-                    ),
-                  ),
-                ),
+              _ProfileNavTile(
+                icon: Icons.bar_chart,
+                label: "Statistiques",
+                onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => StatsScreen(progress: progress, onPracticeUnit: onPracticeUnit))),
               ),
+              const SizedBox(height: 10),
+              _ProfileNavTile(
+                icon: Icons.groups,
+                label: "Club d'apprentissage",
+                onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ClubScreen())),
+              ),
+              const SizedBox(height: 10),
+              _SyncRow(progress: progress, onManualSync: onManualSync),
               const SizedBox(height: 16),
               _SectionCard(
                 title: "Badges",
@@ -379,6 +349,149 @@ class ProfileScreen extends StatelessWidget {
                   }).toList(),
                 ),
               ),
+              const SizedBox(height: 16),
+              _ProfileNavTile(
+                icon: Icons.logout,
+                iconColor: AppColors.clay,
+                label: "Se déconnecter",
+                showChevron: false,
+                onTap: () => AuthService.instance.signOut(),
+              ),
+              const SizedBox(height: 10),
+              _ProfileNavTile(
+                icon: Icons.delete_forever,
+                iconColor: AppColors.red,
+                labelColor: AppColors.red,
+                borderColor: AppColors.red,
+                showChevron: false,
+                label: "Supprimer mon compte",
+                onTap: () => showDialog(context: context, builder: (_) => const _DeleteAccountDialog()),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Manual "sync now" action — forces an immediate cloud write via
+/// [ProgressStore.save] and reports whether it actually reached Firestore,
+/// rather than the silent best-effort save every other mutation triggers.
+class _SyncRow extends StatefulWidget {
+  final Progress progress;
+  final Future<bool> Function() onManualSync;
+  const _SyncRow({required this.progress, required this.onManualSync});
+
+  @override
+  State<_SyncRow> createState() => _SyncRowState();
+}
+
+class _SyncRowState extends State<_SyncRow> {
+  bool _syncing = false;
+  String? _result;
+
+  String _formatLastSync(int ms) {
+    if (ms == 0) return "Jamais synchronisé";
+    final d = DateTime.fromMillisecondsSinceEpoch(ms);
+    final now = DateTime.now();
+    final time = "${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}";
+    final sameDay = d.year == now.year && d.month == now.month && d.day == now.day;
+    return sameDay ? "Dernière sauvegarde aujourd'hui à $time" : "Dernière sauvegarde le ${d.day}/${d.month} à $time";
+  }
+
+  Future<void> _sync() async {
+    setState(() {
+      _syncing = true;
+      _result = null;
+    });
+    final ok = await widget.onManualSync();
+    if (!mounted) return;
+    setState(() {
+      _syncing = false;
+      _result = ok ? "Synchronisé ✓" : "Hors ligne — sauvegardé en local seulement";
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        border: Border.all(color: AppColors.line),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.cloud_sync, color: AppColors.indigo, size: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("Sauvegarde cloud", style: AppText.inter(fontSize: 14, fontWeight: FontWeight.w700)),
+                Text(
+                  _result ?? _formatLastSync(widget.progress.updatedAtMs),
+                  style: AppText.inter(fontSize: 12, color: AppColors.ink.withValues(alpha: 0.6)),
+                ),
+              ],
+            ),
+          ),
+          _syncing
+              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.indigo))
+              : TextButton(
+                  onPressed: _sync,
+                  child: Text("Synchroniser", style: AppText.inter(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.indigo)),
+                ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Tappable card row used throughout the profile for navigation links and
+/// account actions — extracted since the same Material/InkWell/Container
+/// shape was previously repeated six times with only icon/label/color/tap
+/// changing.
+class _ProfileNavTile extends StatelessWidget {
+  final IconData icon;
+  final Color iconColor;
+  final Color? labelColor;
+  final Color borderColor;
+  final String label;
+  final bool showChevron;
+  final VoidCallback onTap;
+
+  const _ProfileNavTile({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.iconColor = AppColors.indigo,
+    this.labelColor,
+    this.borderColor = AppColors.line,
+    this.showChevron = true,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.card,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(border: Border.all(color: borderColor), borderRadius: BorderRadius.circular(16)),
+          child: Row(
+            children: [
+              Icon(icon, color: iconColor, size: 20),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(label, style: AppText.inter(fontSize: 14, fontWeight: FontWeight.w700, color: labelColor ?? AppColors.ink)),
+              ),
+              if (showChevron) const Icon(Icons.chevron_right, color: AppColors.ink),
             ],
           ),
         ),
@@ -438,6 +551,104 @@ class _SectionCard extends StatelessWidget {
           child,
         ],
       ),
+    );
+  }
+}
+
+/// Confirms with the account's password (Firebase requires a *recent*
+/// sign-in for account deletion) before permanently deleting the Firebase
+/// Auth account, its Firestore data, and the on-device progress cache.
+/// Success just pops the dialog — [AuthGate] swaps to [AuthScreen]
+/// automatically once the auth state changes to signed-out.
+class _DeleteAccountDialog extends StatefulWidget {
+  const _DeleteAccountDialog();
+
+  @override
+  State<_DeleteAccountDialog> createState() => _DeleteAccountDialogState();
+}
+
+class _DeleteAccountDialogState extends State<_DeleteAccountDialog> {
+  final _passwordCtrl = TextEditingController();
+  bool _loading = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _passwordCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _confirm() async {
+    if (_passwordCtrl.text.isEmpty) {
+      setState(() => _error = "Saisis ton mot de passe pour confirmer.");
+      return;
+    }
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    final uid = AuthService.instance.currentUser?.uid;
+    final error = await AuthService.instance.deleteAccount(password: _passwordCtrl.text);
+    if (error == null && uid != null) {
+      await ProgressStore.clearLocalFor(uid);
+    }
+    if (!mounted) return;
+    if (error == null) {
+      Navigator.of(context).pop();
+    } else {
+      setState(() {
+        _loading = false;
+        _error = error;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: AppColors.card,
+      title: Text("Supprimer ton compte ?", style: AppText.fraunces(fontSize: 18)),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            "Cette action est définitive : ta progression, tes badges et ton compte seront supprimés. "
+            "Confirme avec ton mot de passe.",
+            style: AppText.inter(fontSize: 13, color: AppColors.ink.withValues(alpha: 0.75)),
+          ),
+          const SizedBox(height: 14),
+          TextField(
+            controller: _passwordCtrl,
+            obscureText: true,
+            autofocus: true,
+            onSubmitted: (_) => _confirm(),
+            decoration: InputDecoration(
+              hintText: "Mot de passe",
+              filled: true,
+              fillColor: AppColors.bg,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.line)),
+            ),
+          ),
+          if (_error != null) ...[
+            const SizedBox(height: 10),
+            Text(_error!, style: AppText.inter(fontSize: 12, color: AppColors.red, fontWeight: FontWeight.w600)),
+          ],
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: _loading ? null : () => Navigator.of(context).pop(),
+          child: Text("Annuler", style: AppText.inter(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.ink)),
+        ),
+        TextButton(
+          onPressed: _loading ? null : _confirm,
+          child: _loading
+              ? const SizedBox(
+                  width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.red))
+              : Text("Supprimer", style: AppText.inter(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.red)),
+        ),
+      ],
     );
   }
 }
