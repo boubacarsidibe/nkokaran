@@ -89,8 +89,12 @@ accent français. Les annotations pédagogiques entre parenthèses
 (« é (fermé) ») ne sont jamais lues.
 
 ```
-flutter run -d chrome --dart-define=DJELIA_API_KEY=ta_cle
+# .env.json (ignoré par git) : {"DJELIA_API_KEY": "ta_cle"}
+flutter run -d chrome --dart-define-from-file=.env.json
 ```
+
+La config VS Code « nko_kalan (Djelia) » lit ce même `.env.json` : ne mets
+jamais la clé en dur dans un fichier versionné.
 
 Une clé passée par `--dart-define` est lisible dans le binaire (surtout sur
 le web). Pour une diffusion publique, déploie un petit proxy qui garde la clé

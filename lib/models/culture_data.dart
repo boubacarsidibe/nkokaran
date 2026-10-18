@@ -29,6 +29,14 @@ const cultureCards = <CultureCard>[
         "comme le fait Moussa avec Sekou, fait donc partie intégrante de l'écriture elle-même — ce n'est "
         "pas un simple emprunt à une autre langue.",
   ),
+  CultureCard(
+    episodeId: "ep3",
+    title: "Revenir, c'est saluer deux fois",
+    body: "Retourner voir le même vendeur, comme le fait Sekou avec Moussa, est courant sur les marchés "
+        "manding : la fidélité à un étal se construit sur plusieurs visites, et chaque retour commence par "
+        "les mêmes salutations complètes — jamais un simple signe de tête. Sauter les politesses, même pour "
+        "quelqu'un qu'on a déjà rencontré la veille, serait perçu comme un manque de respect.",
+  ),
 ];
 
 CultureCard? cultureCardForEpisode(String episodeId) {
@@ -111,6 +119,63 @@ Proverb? proverbForUnit(String unitId) {
   }
   return null;
 }
+
+/// One chapter of the "Histoire du N'Ko" screen — biography of Solomana
+/// Kanté and the story of the script, sourced from Wikipédia (FR/EN) and
+/// manden.org. Kept as plain French prose (no invented N'Ko sentences).
+class HistoryChapter {
+  final String title;
+  final String body;
+  const HistoryChapter({required this.title, required this.body});
+}
+
+const historyChapters = <HistoryChapter>[
+  HistoryChapter(
+    title: "Qui était Solomana Kanté ?",
+    body: "Solomana Kanté (aussi écrit Souleymane Kanté) est né en 1922 à Koloni, "
+        "près de Kankan, en Guinée. Fils d'un érudit qui dirigeait une école coranique, "
+        "il quitte la Guinée pour la Côte d'Ivoire en 1941 après la mort de son père, "
+        "et devient commerçant tout en poursuivant seul son instruction. Il meurt le "
+        "23 novembre 1987 à Conakry.",
+  ),
+  HistoryChapter(
+    title: "Une réponse à un article",
+    body: "En 1949, à Bingerville, Kanté lit un article du journaliste libanais Kamel "
+        "Marouah affirmant que les langues africaines, faute d'écriture propre, ne "
+        "pouvaient pas exprimer de pensée abstraite ni de règles grammaticales. "
+        "Convaincu du contraire, et après plusieurs essais infructueux pour transcrire "
+        "le maninka avec les alphabets arabe et latin — mal adaptés aux sons et aux tons "
+        "des langues manding — il décide de créer un système d'écriture entièrement "
+        "nouveau.",
+  ),
+  HistoryChapter(
+    title: "La naissance du N'Ko, le 14 avril 1949",
+    body: "Après plusieurs années de recherche, Kanté achève son alphabet le 14 avril "
+        "1949 et le baptise ߒߞߏ (n'ko), qui signifie « je dis » dans l'ensemble des "
+        "langues manding. Cette date est depuis célébrée chaque année comme la Journée "
+        "de l'alphabet N'Ko. Le N'Ko s'écrit de droite à gauche, comme l'arabe, mais — "
+        "à la différence de celui-ci — il note obligatoirement les voyelles et les tons, "
+        "ce qui le rend particulièrement adapté à la phonologie des langues manding.",
+  ),
+  HistoryChapter(
+    title: "De Bingerville à Kankan",
+    body: "Kanté rapporte son alphabet à Kankan, sa ville natale, où il enseigne le "
+        "N'Ko et rédige les premiers manuels. En 38 ans, il écrira plus d'une "
+        "soixantaine d'ouvrages : syllabaires, grammaires, recueils de proverbes et de "
+        "poésie, traductions religieuses (dont des extraits du Coran), un dictionnaire, "
+        "et des textes sur l'histoire manding et la médecine traditionnelle — posant les "
+        "bases d'une véritable littérature écrite en N'Ko.",
+  ),
+  HistoryChapter(
+    title: "Le N'Ko aujourd'hui",
+    body: "Porté par des associations d'alphabétisation dans toute l'Afrique de "
+        "l'Ouest — Guinée, Mali, Côte d'Ivoire, Sénégal, Burkina Faso — et par une "
+        "diaspora active, le N'Ko continue de se diffuser : journaux, sites web, "
+        "manuels scolaires et, depuis 2006, son propre bloc Unicode (U+07C0–U+07FF), "
+        "qui permet d'écrire le N'Ko sur ordinateurs et téléphones, exactement comme "
+        "dans cette application.",
+  ),
+];
 
 class GlossaryEntry {
   final String nko;

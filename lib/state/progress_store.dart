@@ -1,12 +1,23 @@
 import 'dart:convert';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../services/error_reporter.dart';
 
-const _storageKey = "nko_kalan_progress_v1";
-const _corruptBackupKey = "nko_kalan_progress_corrupt_backup";
+const _legacyCorruptSuffix = "corrupt_backup";
 
 /// Bumped whenever the saved JSON shape changes in a way [Progress.fromJson]
 /// can't absorb with defaults — lets a future migration branch on it.
 const int progressSchemaVersion = 1;
+
+/// Scoped per signed-in account so switching users on a shared device never
+/// shows one account's local cache under another account.
+String _storageKey() {
+  final uid = FirebaseAuth.instance.currentUser?.uid ?? "anon";
+  return "nko_kalan_progress_v1_$uid";
+}
+
+String _corruptBackupKey() => "${_storageKey()}_$_legacyCorruptSuffix";
 
 const int maxHearts = 5;
 // Compressed vs. Duolingo's real-world ~4h regen so the mechanic is
@@ -19,6 +30,15 @@ const int heartRefillCost = 100;
 const int streakFreezeCost = 200;
 
 const int dailyGoalXp = 30;
+
+/// Multi-tier weekly league (Duolingo-style Bronze→Diamond ladder) — see
+/// [ProgressStore.load] for the promotion/demotion rule. Simplified vs. the
+/// real product: it's a fixed weekly-XP threshold per tier rather than
+/// rank-based top-N/bottom-N among the tier's actual cohort, since that
+/// would need a server-side weekly cron job we don't have infra for here.
+const leagueTierNames = ["Bronze", "Argent", "Or", "Saphir", "Diamant"];
+const int leaguePromotionXp = 150;
+const int leagueDemotionXp = 20;
 
 class Progress {
   List<String> completedUnits;
@@ -82,6 +102,18 @@ class Progress {
   Map<String, int> unitAttempts;
   Map<String, int> unitCorrect;
 
+  /// Epoch ms of the last local save — used by [ProgressStore] to decide
+  /// whether the on-device copy or the cloud copy is newer when syncing
+  /// across devices for the same account.
+  int updatedAtMs;
+
+  /// Index into [leagueTierNames] — Bronze (0) upward. [leagueWeekXp] is
+  /// this calendar week's running total, evaluated for promotion/demotion
+  /// by [ProgressStore.load] whenever [leagueWeekKey] rolls over.
+  int leagueTier;
+  int leagueWeekXp;
+  String? leagueWeekKey;
+
   Progress({
     List<String>? completedUnits,
     this.xp = 0,
@@ -111,7 +143,12 @@ class Progress {
     this.timeTodayDate,
     Map<String, int>? unitAttempts,
     Map<String, int>? unitCorrect,
-  })  : completedUnits = completedUnits ?? [],
+    int? updatedAtMs,
+    this.leagueTier = 0,
+    this.leagueWeekXp = 0,
+    this.leagueWeekKey,
+  })  : updatedAtMs = updatedAtMs ?? 0,
+        completedUnits = completedUnits ?? [],
         hearts = hearts ?? maxHearts,
         xpHistory = xpHistory ?? {},
         badges = badges ?? [],
@@ -154,6 +191,10 @@ class Progress {
         timeTodayDate: json['timeTodayDate'],
         unitAttempts: (json['unitAttempts'] as Map?)?.map((k, v) => MapEntry(k as String, v as int)) ?? {},
         unitCorrect: (json['unitCorrect'] as Map?)?.map((k, v) => MapEntry(k as String, v as int)) ?? {},
+        updatedAtMs: json['updatedAtMs'] ?? 0,
+        leagueTier: json['leagueTier'] ?? 0,
+        leagueWeekXp: json['leagueWeekXp'] ?? 0,
+        leagueWeekKey: json['leagueWeekKey'],
       );
 
   Map<String, dynamic> toJson() => {
@@ -186,6 +227,10 @@ class Progress {
         'timeTodayDate': timeTodayDate,
         'unitAttempts': unitAttempts,
         'unitCorrect': unitCorrect,
+        'updatedAtMs': updatedAtMs,
+        'leagueTier': leagueTier,
+        'leagueWeekXp': leagueWeekXp,
+        'leagueWeekKey': leagueWeekKey,
       };
 
   Progress copy() => Progress.fromJson(toJson());
@@ -252,6 +297,7 @@ class Progress {
     xp += amount;
     xpToday += amount;
     xpHistory[today] = (xpHistory[today] ?? 0) + amount;
+    leagueWeekXp += amount;
   }
 
   void awardBadge(String id) {
@@ -385,31 +431,158 @@ String _weekKey(DateTime d) {
   return "${d.year}-W$week";
 }
 
+/// Result of [applySessionCompletion] — the effects the UI layer (chest
+/// dialog, summary screen) needs to react to, separate from the mutation
+/// itself so the logic can be unit tested without a widget tree.
+class SessionOutcome {
+  final int gemsEarned;
+  final bool perfect;
+  final bool unitFirstClear;
+  const SessionOutcome({required this.gemsEarned, required this.perfect, required this.unitFirstClear});
+}
+
+/// Applies the XP/gems/streak/badge effects of finishing a lesson or
+/// practice session directly onto [p]. Pure mutation — no UI, no async, no
+/// chest-reward roll (that stays in the caller since it needs a
+/// [BuildContext] to show a dialog) — so this can be unit tested in
+/// isolation from the widget tree.
+SessionOutcome applySessionCompletion(
+  Progress p, {
+  required bool isPractice,
+  required bool isMistakesReview,
+  required int sessionXp,
+  required int sessionMistakes,
+  required String? unitId,
+  required List<String> allUnitIds,
+  required DateTime now,
+  Duration? elapsed,
+}) {
+  final perfect = sessionMistakes == 0;
+  final gemsEarned = isPractice ? 2 : gemsPerLesson + (perfect ? gemsPerfectBonus : 0);
+
+  p.addXp(sessionXp, now);
+  p.gems += gemsEarned;
+  p.recordSessionCompletion(now);
+  p.recordStudyDay(now);
+  if (elapsed != null) {
+    p.recordStudyTime(elapsed.inMilliseconds, now);
+  }
+
+  if (isMistakesReview) {
+    p.weakLetters.clear();
+  }
+
+  var unitFirstClear = false;
+  if (!isPractice && unitId != null) {
+    unitFirstClear = !p.completedUnits.contains(unitId);
+    if (unitFirstClear) {
+      p.completedUnits = [...p.completedUnits, unitId];
+    }
+    if (perfect) p.awardBadge("perfectionist");
+    if (allUnitIds.every((id) => p.completedUnits.contains(id))) {
+      p.awardBadge("nko_graduate");
+    }
+    checkAndAwardBadges(p);
+  }
+
+  return SessionOutcome(gemsEarned: gemsEarned, perfect: perfect, unitFirstClear: unitFirstClear);
+}
+
 class ProgressStore {
+  static DocumentReference<Map<String, dynamic>>? _cloudDoc() {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return null;
+    return FirebaseFirestore.instance.collection('users').doc(uid).collection('progress').doc('data');
+  }
+
   static Future<Progress> load() async {
     final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_storageKey);
+    final raw = prefs.getString(_storageKey());
     var p = Progress();
     if (raw != null) {
       try {
         p = Progress.fromJson(jsonDecode(raw));
-      } catch (_) {
-        // Unreadable save: keep the raw text aside instead of letting the
-        // fresh defaults overwrite (and permanently destroy) it.
-        await prefs.setString(_corruptBackupKey, raw);
+      } catch (e, st) {
+        // Keep the raw text aside so the fresh defaults can't permanently
+        // overwrite an unreadable save.
+        await prefs.setString(_corruptBackupKey(), raw);
+        // corrupt local cache — fall back to defaults; logged since this
+        // means real progress may be lost if the cloud copy is also stale.
+        ErrorReporter.report('ProgressStore.load: corrupt local cache', e, st);
+      }
+    }
+
+    // Cloud merge: whichever copy — this device's or the account's cloud
+    // copy from another device — was saved most recently wins, so signing
+    // in on a second device picks up progress instead of resetting it.
+    final doc = _cloudDoc();
+    if (doc != null) {
+      try {
+        final snap = await doc.get();
+        final data = snap.data();
+        if (data != null) {
+          final cloud = Progress.fromJson(data);
+          if (cloud.updatedAtMs > p.updatedAtMs) p = cloud;
+        }
+      } catch (e, st) {
+        // offline or Firestore unreachable — keep the local copy, next save
+        // will push it back up once connectivity returns.
+        ErrorReporter.report('ProgressStore.load: cloud fetch failed', e, st);
       }
     }
 
     final now = DateTime.now();
-    p.lastActive = _dayKey(now);
+    final today = _dayKey(now);
+    p.lastActive = today;
     p.settleStreak(now);
+
+    final weekKey = _weekKey(now);
+    if (p.leagueWeekKey != null && p.leagueWeekKey != weekKey) {
+      // A full week elapsed since the last recorded league week — evaluate
+      // last week's XP for promotion/demotion, then start the new week
+      // clean. See [leagueTierNames]'s doc comment for why this is a fixed
+      // threshold rather than rank-based.
+      if (p.leagueWeekXp >= leaguePromotionXp && p.leagueTier < leagueTierNames.length - 1) {
+        p.leagueTier += 1;
+      } else if (p.leagueWeekXp < leagueDemotionXp && p.leagueTier > 0) {
+        p.leagueTier -= 1;
+      }
+      p.leagueWeekXp = 0;
+    }
+    p.leagueWeekKey = weekKey;
+
     p.regenerateHearts(now);
     await save(p);
     return p;
   }
 
-  static Future<void> save(Progress p) async {
+  /// Returns whether the cloud write succeeded (local save always does,
+  /// short of disk failure) — most callers ignore this, but a manual
+  /// "sync now" action uses it to give the user real feedback instead of
+  /// silently swallowing an offline failure like the background saves do.
+  static Future<bool> save(Progress p) async {
+    p.updatedAtMs = DateTime.now().millisecondsSinceEpoch;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_storageKey, jsonEncode(p.toJson()));
+    await prefs.setString(_storageKey(), jsonEncode(p.toJson()));
+
+    final doc = _cloudDoc();
+    if (doc == null) return false;
+    try {
+      await doc.set(p.toJson());
+      return true;
+    } catch (e, st) {
+      // offline — local save already succeeded; the next successful save
+      // (or the next app launch) will push this snapshot to the cloud.
+      ErrorReporter.report('ProgressStore.save: cloud write failed', e, st);
+      return false;
+    }
+  }
+
+  /// Clears the on-device cache for [uid] — called right before deleting an
+  /// account, while the caller still knows its uid (once signed out,
+  /// [_storageKey] can no longer resolve to it).
+  static Future<void> clearLocalFor(String uid) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove("nko_kalan_progress_v1_$uid");
   }
 }

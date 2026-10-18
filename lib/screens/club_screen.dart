@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../services/social_service.dart';
 import '../theme/app_theme.dart';
@@ -30,7 +31,10 @@ class _ClubScreenState extends State<ClubScreen> {
     });
   }
 
-  Future<void> _join() => SocialService.instance.joinClub(_defaultClubId, "Kalanden");
+  Future<void> _join() {
+    final name = FirebaseAuth.instance.currentUser?.displayName;
+    return SocialService.instance.joinClub(_defaultClubId, (name == null || name.isEmpty) ? "Kalanden" : name);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -60,6 +64,16 @@ class _ClubScreenState extends State<ClubScreen> {
                       child: StreamBuilder<ClubData?>(
                         stream: SocialService.instance.clubStream(_defaultClubId),
                         builder: (context, snap) {
+                          if (snap.hasError) {
+                            return Center(
+                              child: Padding(
+                                padding: const EdgeInsets.all(24),
+                                child: Text("Club indisponible pour l'instant — vérifie ta connexion.",
+                                    textAlign: TextAlign.center,
+                                    style: AppText.inter(fontSize: 13, color: AppColors.ink.withValues(alpha: 0.65))),
+                              ),
+                            );
+                          }
                           final club = snap.data;
                           if (club == null) {
                             return Center(

@@ -1,12 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
-import '../firebase_options.dart';
 
-/// Backs features 25–27 (leagues, friends, lesson threads, clubs). All of it
-/// needs a real Firebase project — see `lib/firebase_options.dart`. Every
-/// public method fails soft (returns empty/false) when Firebase isn't
-/// configured or reachable, so the rest of the app keeps working without it.
+/// Backs features 25–27 (leagues, friends, lesson threads, clubs). Firebase
+/// is already initialized and the user already signed in by [AuthGate]
+/// before any screen using this service can be reached (auth is mandatory),
+/// so this just reads the current user rather than signing in itself. Every
+/// public method still fails soft (returns empty/false) if Firestore is
+/// unreachable, so the rest of the app keeps working without it.
 /// The single shared club every player can join.
 const defaultClubId = 'kalanden-manding';
 
@@ -14,52 +14,41 @@ class SocialService {
   SocialService._();
   static final SocialService instance = SocialService._();
 
-  bool _initTried = false;
-  bool _available = false;
-  String? _uid;
+  bool get isAvailable => FirebaseAuth.instance.currentUser != null;
+  String? get uid => FirebaseAuth.instance.currentUser?.uid;
 
-  bool get isAvailable => _available;
-  String? get uid => _uid;
-
-  Future<bool> ensureReady() async {
-    if (_initTried) return _available;
-    _initTried = true;
-    try {
-      if (Firebase.apps.isEmpty) {
-        await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-      }
-      final cred = await FirebaseAuth.instance.signInAnonymously();
-      _uid = cred.user!.uid;
-      _available = true;
-    } catch (_) {
-      // No/placeholder Firebase config, unsupported platform, or offline —
-      // social screens show a "non disponible" state instead of crashing.
-      _available = false;
-    }
-    return _available;
-  }
+  Future<bool> ensureReady() async => isAvailable;
 
   FirebaseFirestore get _db => FirebaseFirestore.instance;
 
-  /// Call after login and whenever local XP changes, so the leaderboard and
-  /// club contributions stay in sync.
-  /// Public pseudo: stable per install, distinguishable between players.
-  String get defaultDisplayName => 'Kalanden-${(_uid ?? '0000').substring(0, 4)}';
-
-  Future<void> upsertProfile({required String displayName, required int xp, required int weeklyXp}) async {
-    if (!_available) return;
-    await _db.collection('users').doc(_uid).set({
-      'displayName': displayName.trim().isEmpty ? 'Kalanden' : displayName.trim(),
+  /// Call after login and whenever local XP/tier changes, so the leaderboard
+  /// and club contributions stay in sync. [leagueTier] is the index into
+  /// `leagueTierNames` (progress_store.dart) — written here so
+  /// [weeklyLeagueStream] can filter the board to the caller's own tier.
+  Future<void> upsertProfile({
+    required String displayName,
+    required int xp,
+    required int weeklyXp,
+    required int leagueTier,
+  }) async {
+    if (!isAvailable) return;
+    await _db.collection('users').doc(uid).set({
+      'displayName': displayName,
       'xp': xp,
       'weeklyXp': weeklyXp,
+      'leagueTier': leagueTier,
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
   }
 
-  Stream<List<LeagueMember>> weeklyLeagueStream() {
-    if (!_available) return const Stream.empty();
+  /// Leaderboard scoped to a single league tier — see [upsertProfile].
+  /// Needs a composite index on (leagueTier asc, weeklyXp desc), declared in
+  /// firestore.indexes.json.
+  Stream<List<LeagueMember>> weeklyLeagueStream(int leagueTier) {
+    if (!isAvailable) return const Stream.empty();
     return _db
         .collection('users')
+        .where('leagueTier', isEqualTo: leagueTier)
         .orderBy('weeklyXp', descending: true)
         .limit(30)
         .snapshots()
@@ -67,13 +56,13 @@ class SocialService {
   }
 
   Future<void> addFriend(String friendUid) async {
-    if (!_available || friendUid == _uid) return;
-    await _db.collection('users').doc(_uid).collection('friends').doc(friendUid).set({'addedAt': FieldValue.serverTimestamp()});
+    if (!isAvailable || friendUid == uid) return;
+    await _db.collection('users').doc(uid).collection('friends').doc(friendUid).set({'addedAt': FieldValue.serverTimestamp()});
   }
 
   Stream<List<LeagueMember>> friendsStream() {
-    if (!_available) return const Stream.empty();
-    return _db.collection('users').doc(_uid).collection('friends').snapshots().asyncMap((snap) async {
+    if (!isAvailable) return const Stream.empty();
+    return _db.collection('users').doc(uid).collection('friends').snapshots().asyncMap((snap) async {
       final out = <LeagueMember>[];
       for (final doc in snap.docs) {
         final userDoc = await _db.collection('users').doc(doc.id).get();
@@ -86,7 +75,7 @@ class SocialService {
   }
 
   Stream<List<ThreadPost>> lessonThreadStream(String unitId) {
-    if (!_available) return const Stream.empty();
+    if (!isAvailable) return const Stream.empty();
     return _db
         .collection('lessonThreads')
         .doc(unitId)
@@ -100,17 +89,17 @@ class SocialService {
   }
 
   Future<void> postToThread(String unitId, String author, String text) async {
-    if (!_available || text.trim().isEmpty) return;
+    if (!isAvailable || text.trim().isEmpty) return;
     await _db.collection('lessonThreads').doc(unitId).collection('posts').add({
       'author': author,
-      'authorUid': _uid,
+      'authorUid': uid,
       'text': text.trim().length > 500 ? text.trim().substring(0, 500) : text.trim(),
       'createdAt': FieldValue.serverTimestamp(),
     });
   }
 
   Stream<ClubData?> clubStream(String clubId) {
-    if (!_available) return const Stream.empty();
+    if (!isAvailable) return const Stream.empty();
     return _db.collection('clubs').doc(clubId).snapshots().map((d) {
       if (!d.exists) return null;
       final members = (d['members'] as Map?)?.cast<String, dynamic>() ?? {};
@@ -124,23 +113,25 @@ class SocialService {
   }
 
   Future<void> joinClub(String clubId, String displayName) async {
-    if (!_available) return;
-    final existing = await _db.collection('clubs').doc(clubId).get();
-    final members = (existing.data()?['members'] as Map?) ?? const {};
-    if (members.containsKey(_uid)) return; // don't reset our own tally
-    await _db.collection('clubs').doc(clubId).set({
-      'name': clubId,
-      'weeklyGoalXp': 500,
-      'members': {_uid: 0},
-    }, SetOptions(merge: true));
+    if (!isAvailable) return;
+    final ref = _db.collection('clubs').doc(clubId);
+    final snap = await ref.get();
+    if (!snap.exists) {
+      await ref.set({'name': clubId, 'weeklyGoalXp': 500, 'members': {uid!: 0}});
+      return;
+    }
+    final members = snap.data()?['members'] as Map?;
+    if (members == null || !members.containsKey(uid)) {
+      await ref.set({'members': {uid: 0}}, SetOptions(merge: true));
+    }
   }
 
   /// Adds [xp] earned by this player to the club's tally. Called from real
   /// lesson completions (see main.dart), never from a free-standing button.
   Future<void> contributeToClub(String clubId, int xp) async {
-    if (!_available || xp <= 0) return;
+    if (!isAvailable || xp <= 0) return;
     await _db.collection('clubs').doc(clubId).set({
-      'members': {_uid: FieldValue.increment(xp)},
+      'members': {uid: FieldValue.increment(xp)},
     }, SetOptions(merge: true));
   }
 }

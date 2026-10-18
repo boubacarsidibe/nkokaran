@@ -1,8 +1,13 @@
 import 'dart:async';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'firebase_options.dart';
 import 'models/nko_data.dart';
 import 'models/story_data.dart';
+import 'screens/auth_screen.dart';
 import 'screens/episode_player_screen.dart';
 import 'screens/failed_screen.dart';
 import 'screens/home_screen.dart';
@@ -12,19 +17,60 @@ import 'screens/practice_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/story_list_screen.dart';
 import 'screens/summary_screen.dart';
+import 'services/auth_service.dart';
 import 'services/notification_service.dart';
 import 'services/social_service.dart';
 import 'state/progress_store.dart';
 import 'state/spaced_repetition.dart';
 import 'theme/app_theme.dart';
 import 'widgets/chest_dialog.dart';
+import 'widgets/email_verification_banner.dart' show EmailVerificationGateScreen;
 
-void main() {
-  runApp(const NkoKalanApp());
+// Crashlytics only ships native implementations for Android/iOS/macOS —
+// calling it on web/Windows/Linux throws MissingPluginException.
+bool get _crashlyticsSupported =>
+    !kIsWeb &&
+    (defaultTargetPlatform == TargetPlatform.android ||
+        defaultTargetPlatform == TargetPlatform.iOS ||
+        defaultTargetPlatform == TargetPlatform.macOS);
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  String? initError;
+  try {
+    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+    if (_crashlyticsSupported) {
+      FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
+      PlatformDispatcher.instance.onError = (error, stack) {
+        FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+        return true;
+      };
+    }
+  } catch (e) {
+    // Unsupported platform (e.g. this build target has no Firebase config)
+    // or unreachable project — surfaced as a blocking error screen instead
+    // of a silent anonymous fallback, since auth is now mandatory.
+    initError = e.toString();
+  }
+  // runZonedGuarded catches errors from fire-and-forget async calls (e.g.
+  // unawaited _finishSession()) that would otherwise never reach
+  // PlatformDispatcher.onError.
+  runZonedGuarded(
+    () => runApp(NkoKalanApp(initError: initError)),
+    (error, stack) {
+      if (_crashlyticsSupported) {
+        FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+      } else {
+        // ignore: avoid_print
+        print('Unhandled error: $error\n$stack');
+      }
+    },
+  );
 }
 
 class NkoKalanApp extends StatelessWidget {
-  const NkoKalanApp({super.key});
+  final String? initError;
+  const NkoKalanApp({super.key, this.initError});
 
   @override
   Widget build(BuildContext context) {
@@ -32,7 +78,80 @@ class NkoKalanApp extends StatelessWidget {
       title: "N'Ko Kalan",
       debugShowCheckedModeBanner: false,
       theme: buildAppTheme(),
-      home: const NkoKalanRoot(),
+      home: initError != null ? _FirebaseUnavailableScreen(error: initError!) : const AuthGate(),
+    );
+  }
+}
+
+class _FirebaseUnavailableScreen extends StatelessWidget {
+  final String error;
+  const _FirebaseUnavailableScreen({required this.error});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.bg,
+      body: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.cloud_off, size: 40, color: AppColors.clay),
+                const SizedBox(height: 12),
+                Text("Connexion indisponible", style: AppText.fraunces(fontSize: 18), textAlign: TextAlign.center),
+                const SizedBox(height: 8),
+                Text(
+                  "N'Ko Kalan a besoin d'un compte pour continuer, mais le service d'authentification "
+                  "n'est pas disponible sur cet appareil.\n\n$error",
+                  textAlign: TextAlign.center,
+                  style: AppText.inter(fontSize: 12, color: AppColors.ink.withValues(alpha: 0.6)),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Blocks all app content behind a signed-in Firebase user — required since
+/// authentication is now mandatory (previously only social features used a
+/// silent anonymous sign-in via [SocialService]).
+class AuthGate extends StatefulWidget {
+  const AuthGate({super.key});
+
+  @override
+  State<AuthGate> createState() => _AuthGateState();
+}
+
+class _AuthGateState extends State<AuthGate> {
+  // authStateChanges doesn't fire when only emailVerified changes, so this
+  // is flipped manually once EmailVerificationGateScreen confirms it.
+  bool _verifiedOverride = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<User?>(
+      stream: AuthService.instance.authStateChanges,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            backgroundColor: AppColors.bg,
+            body: Center(child: CircularProgressIndicator(color: AppColors.indigo)),
+          );
+        }
+        final user = snapshot.data;
+        if (user == null) {
+          return const AuthScreen();
+        }
+        if (!user.emailVerified && !_verifiedOverride) {
+          return EmailVerificationGateScreen(onVerified: () => setState(() => _verifiedOverride = true));
+        }
+        return const NkoKalanRoot();
+      },
     );
   }
 }
@@ -86,7 +205,7 @@ class _NkoKalanRootState extends State<NkoKalanRoot> {
       _progress = p;
       _ready = true;
     });
-    NotificationService.instance.scheduleDailyReminder();
+    NotificationService.instance.scheduleDailyReminder(streak: p.streak, dailyGoalReached: p.dailyGoalReached);
     _heartTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       if (_progress.hearts >= maxHearts) return;
       setState(() => _progress.regenerateHearts(DateTime.now()));
@@ -97,6 +216,8 @@ class _NkoKalanRootState extends State<NkoKalanRoot> {
   Future<void> _persist() async {
     await ProgressStore.save(_progress);
   }
+
+  Future<bool> _manualSync() => ProgressStore.save(_progress);
 
   /// Re-runs whichever session was last started — used by "Rejouer" /
   /// "Réessayer" so every session kind (unit, practice, mistakes, review,
@@ -277,38 +398,22 @@ class _NkoKalanRootState extends State<NkoKalanRoot> {
 
   Future<void> _finishSession() async {
     final now = DateTime.now();
-    final perfect = _sessionMistakes == 0;
-    final gemsEarned = _isPractice ? 2 : gemsPerLesson + (perfect ? gemsPerfectBonus : 0);
-
-    _progress.addXp(_sessionXp, now);
-    _progress.gems += gemsEarned;
-    _progress.recordSessionCompletion(now);
-    _progress.recordStudyDay(now);
-    if (_sessionStart != null) {
-      _progress.recordStudyTime(now.difference(_sessionStart!).inMilliseconds, now);
-    }
-
-    if (_isMistakesReview) {
-      _progress.weakLetters.clear();
-      _isMistakesReview = false;
-    }
-
-    var unitFirstClear = false;
-    if (!_isPractice) {
-      unitFirstClear = !_progress.completedUnits.contains(_activeUnit!.id);
-      if (unitFirstClear) {
-        _progress.completedUnits = [..._progress.completedUnits, _activeUnit!.id];
-      }
-      if (perfect) _progress.awardBadge("perfectionist");
-      if (units.every((u) => _progress.completedUnits.contains(u.id))) {
-        _progress.awardBadge("nko_graduate");
-      }
-      checkAndAwardBadges(_progress);
-    }
+    final outcome = applySessionCompletion(
+      _progress,
+      isPractice: _isPractice,
+      isMistakesReview: _isMistakesReview,
+      sessionXp: _sessionXp,
+      sessionMistakes: _sessionMistakes,
+      unitId: _activeUnit?.id,
+      allUnitIds: units.map((u) => u.id).toList(),
+      now: now,
+      elapsed: _sessionStart != null ? now.difference(_sessionStart!) : null,
+    );
+    _isMistakesReview = false;
 
     var chestGems = 0;
     var chestXp = 0;
-    if (unitFirstClear && mounted) {
+    if (outcome.unitFirstClear && mounted) {
       final reward = ChestReward.random();
       chestGems = reward.gems;
       chestXp = reward.xp;
@@ -322,11 +427,12 @@ class _NkoKalanRootState extends State<NkoKalanRoot> {
     SocialService.instance.contributeToClub(defaultClubId, _sessionXp + chestXp).catchError((_) {});
 
     setState(() {
-      _sessionGems = gemsEarned + chestGems;
+      _sessionGems = outcome.gemsEarned + chestGems;
       _sessionXp += chestXp;
-      _sessionPerfect = perfect;
+      _sessionPerfect = outcome.perfect;
       _screen = _Screen.summary;
     });
+    NotificationService.instance.scheduleDailyReminder(streak: _progress.streak, dailyGoalReached: _progress.dailyGoalReached);
     _persist();
   }
 
@@ -421,6 +527,7 @@ class _NkoKalanRootState extends State<NkoKalanRoot> {
             onBuyStreakFreeze: _buyStreakFreeze,
             onPlayEpisode: _startEpisode,
             onDialectChanged: _setPreferredDialect,
+            onManualSync: _manualSync,
           ),
         );
       case _Screen.episode:
@@ -496,6 +603,7 @@ class _Shell extends StatelessWidget {
   final VoidCallback onBuyStreakFreeze;
   final void Function(StoryEpisode) onPlayEpisode;
   final void Function(String) onDialectChanged;
+  final Future<bool> Function() onManualSync;
 
   const _Shell({
     required this.tab,
@@ -512,6 +620,7 @@ class _Shell extends StatelessWidget {
     required this.onBuyStreakFreeze,
     required this.onPlayEpisode,
     required this.onDialectChanged,
+    required this.onManualSync,
   });
 
   @override
@@ -544,13 +653,17 @@ class _Shell extends StatelessWidget {
           onBuyStreakFreeze: onBuyStreakFreeze,
           onDialectChanged: onDialectChanged,
           onPracticeUnit: onPractice,
+          onManualSync: onManualSync,
         );
         break;
     }
 
     return Scaffold(
       backgroundColor: AppColors.bg,
-      body: body,
+      body: SafeArea(
+        bottom: false,
+        child: body,
+      ),
       bottomNavigationBar: SafeArea(
         top: false,
         child: Container(

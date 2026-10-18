@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'error_reporter.dart';
 
 /// Daily streak reminder — a single repeating local notification, nudging
 /// the learner if they haven't studied yet today. Local-only (no server,
@@ -36,23 +37,42 @@ class NotificationService {
             ?.requestPermissions(alert: true, badge: true, sound: true);
       }
       _ready = true;
-    } catch (_) {
+    } catch (e, st) {
       // Permission denied, unsupported OS version, etc. — reminder is a
       // nice-to-have, never worth crashing or blocking app startup over.
+      ErrorReporter.report('NotificationService._ensureReady', e, st);
     }
   }
 
-  /// Schedules (or re-schedules) a once-a-day reminder. Not tied to an exact
-  /// wall-clock time — `RepeatInterval.daily` is an inexact ~24h repeat, which
-  /// is plenty precise for a "don't lose your streak" nudge.
-  Future<void> scheduleDailyReminder() async {
+  /// Schedules (or re-schedules) a once-a-day reminder, tailored to the
+  /// learner's current state — a streak at risk gets a sharper nudge than a
+  /// cold start, and no reminder is scheduled at all once today's goal is
+  /// already met. Call again whenever [streak]/[dailyGoalReached] change
+  /// (app launch, after finishing a session) so the pending notification
+  /// stays in sync with the latest known state — re-registering just
+  /// replaces the previous content under the same [_reminderId].
+  ///
+  /// Not tied to an exact wall-clock time — `RepeatInterval.daily` is an
+  /// inexact ~24h repeat, which is plenty precise for this nudge and avoids
+  /// pulling in a timezone dependency for exact scheduling.
+  Future<void> scheduleDailyReminder({required int streak, required bool dailyGoalReached}) async {
     await _ensureReady();
     if (!_ready) return;
+    if (dailyGoalReached) {
+      // Already studied today — no need to nudge until tomorrow's state
+      // resets and re-schedules this on the next app launch/session.
+      await cancelDailyReminder();
+      return;
+    }
+    final title = streak > 0 ? "Ta série de $streak jour${streak > 1 ? 's' : ''} est en danger !" : "N'oublie pas ta série !";
+    final body = streak > 0
+        ? "Termine une leçon aujourd'hui pour ne pas la perdre."
+        : "Prends 5 minutes pour continuer ton apprentissage du N'Ko aujourd'hui.";
     try {
       await _plugin.periodicallyShow(
         _reminderId,
-        "N'oublie pas ta série !",
-        "Prends 5 minutes pour continuer ton apprentissage du N'Ko aujourd'hui.",
+        title,
+        body,
         RepeatInterval.daily,
         const NotificationDetails(
           android: AndroidNotificationDetails(
@@ -65,8 +85,9 @@ class NotificationService {
         ),
         androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       );
-    } catch (_) {
+    } catch (e, st) {
       // Fails soft — same reasoning as above.
+      ErrorReporter.report('NotificationService.scheduleDailyReminder', e, st);
     }
   }
 
@@ -74,6 +95,8 @@ class NotificationService {
     if (!_supportedPlatform) return;
     try {
       await _plugin.cancel(_reminderId);
-    } catch (_) {}
+    } catch (e, st) {
+      ErrorReporter.report('NotificationService.cancelDailyReminder', e, st);
+    }
   }
 }
