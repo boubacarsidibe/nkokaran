@@ -24,7 +24,7 @@ class _ListeningCardState extends State<ListeningCard> {
 
   Future<void> _play() async {
     setState(() => _played = true);
-    await TtsService.instance.speak(widget.exercise.spokenText!);
+    await speakOrNotify(context, widget.exercise.spokenText!);
   }
 
   @override

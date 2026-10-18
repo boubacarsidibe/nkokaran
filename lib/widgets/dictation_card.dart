@@ -21,7 +21,7 @@ class _DictationCardState extends State<DictationCard> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => TtsService.instance.speak(widget.exercise.spokenText!));
+    WidgetsBinding.instance.addPostFrameCallback((_) => speakOrNotify(context, widget.exercise.spokenText!));
   }
 
   @override
@@ -30,7 +30,7 @@ class _DictationCardState extends State<DictationCard> {
       mainAxisSize: MainAxisSize.min,
       children: [
         GestureDetector(
-          onTap: () => TtsService.instance.speak(widget.exercise.spokenText!),
+          onTap: () => speakOrNotify(context, widget.exercise.spokenText!),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(

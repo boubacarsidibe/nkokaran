@@ -1,72 +1,70 @@
 import 'dart:convert';
 import 'package:audioplayers/audioplayers.dart';
-import 'package:flutter_tts/flutter_tts.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:speech_to_text/speech_to_text.dart' as stt;
 
-/// Thin, lazily-initialized wrapper around `flutter_tts` — used to "speak"
-/// listening/dictation prompts since we don't ship real N'Ko audio files yet.
-/// The system TTS voice won't pronounce N'Ko script correctly (no engine
-/// supports it), so callers pass a plain Latin-alphabet approximation.
+/// Audio de l'app — **uniquement** via Djelia (https://djelia.cloud), la
+/// seule API hébergée avec une vraie synthèse vocale bambara. Il n'y a
+/// volontairement aucune voix de secours (plus de voix française) : si
+/// Djelia est injoignable ou non configuré, [speak] retourne `false` et
+/// l'appelant affiche un message au lieu de lire du faux avec un accent
+/// français.
 ///
-/// Always tries real Bambara speech first via Djelia (https://djelia.cloud)
-/// — the only hosted TTS API we found with actual Manding-language support
-/// (maninka/dioula have no comparable hosted service; Meta's MMS models
-/// cover them but require self-hosting a PyTorch model, so they're out of
-/// scope here) — regardless of the user's dialect preference, since it's
-/// still closer to the real language family than the French-voice fallback.
-/// Requires a free-tier API key supplied at build/run time via
-/// `--dart-define=DJELIA_API_KEY=...`; without one (or on any request
-/// failure), falls back to the French-voice approximation.
+/// Clé à fournir au build/run : `--dart-define=DJELIA_API_KEY=...`.
+/// Attention : une clé passée par dart-define est lisible dans le binaire
+/// (surtout sur le web) — pour une diffusion publique, faire passer l'appel
+/// par un petit proxy serveur qui garde la clé.
+/// Une URL de proxy peut être donnée via `--dart-define=DJELIA_TTS_URL=...`.
 class TtsService {
   TtsService._();
   static final TtsService instance = TtsService._();
 
   static const _djeliaApiKey = String.fromEnvironment('DJELIA_API_KEY');
-  static const _djeliaTtsUrl = 'https://djelia.cloud/api/v1/models/tts';
+  static const _djeliaTtsUrl = String.fromEnvironment(
+    'DJELIA_TTS_URL',
+    defaultValue: 'https://djelia.cloud/api/v1/models/tts',
+  );
 
-  final FlutterTts _tts = FlutterTts();
   final AudioPlayer _player = AudioPlayer();
-  bool _configured = false;
+  final Map<String, Uint8List> _cache = {};
 
-  Future<void> _ensureConfigured() async {
-    if (_configured) return;
-    await _tts.setLanguage("fr-FR");
-    await _tts.setSpeechRate(0.4);
-    _configured = true;
-  }
+  /// Vrai si une clé (ou un proxy) est configuré — permet à l'UI de
+  /// prévenir l'utilisateur avant même d'essayer.
+  static bool get isConfigured => _djeliaApiKey.isNotEmpty || _djeliaTtsUrl != 'https://djelia.cloud/api/v1/models/tts';
 
-  Future<void> speak(String text) async {
-    if (_djeliaApiKey.isNotEmpty) {
-      if (await _speakBambara(text)) return;
-    }
-    await _ensureConfigured();
-    await _tts.stop();
-    await _tts.speak(text);
-  }
+  /// Retire les annotations entre parenthèses (« é (fermé) » → « é »)
+  /// pour que la synthèse ne lise pas les indications pédagogiques.
+  static String cleanForSpeech(String text) => text.replaceAll(RegExp(r'\s*\([^)]*\)'), '').trim();
 
-  /// Real Bambara speech via Djelia's TTS API. Returns false (never throws)
-  /// on any failure — network error, bad key, rate limit — so [speak] can
-  /// fall back to the French-voice approximation.
-  Future<bool> _speakBambara(String text) async {
+  /// Lit [text] en bambara via Djelia. Ne lève jamais d'exception ;
+  /// retourne `false` en cas d'échec (réseau, clé, quota).
+  Future<bool> speak(String text) async {
+    final clean = cleanForSpeech(text);
+    if (clean.isEmpty || !isConfigured) return false;
     try {
-      final response = await http
-          .post(
-            Uri.parse(_djeliaTtsUrl),
-            headers: {
-              'x-api-key': _djeliaApiKey,
-              'Content-Type': 'application/json',
-            },
-            body: jsonEncode({
-              'text': text,
-              'description': 'Sekou speaks with a clear, warm and natural voice',
-              'format': 'mp3',
-            }),
-          )
-          .timeout(const Duration(seconds: 10));
-      if (response.statusCode != 200) return false;
+      var bytes = _cache[clean];
+      if (bytes == null) {
+        final response = await http
+            .post(
+              Uri.parse(_djeliaTtsUrl),
+              headers: {
+                if (_djeliaApiKey.isNotEmpty) 'x-api-key': _djeliaApiKey,
+                'Content-Type': 'application/json',
+              },
+              body: jsonEncode({
+                'text': clean,
+                'description': 'Sekou speaks with a clear, warm and natural voice',
+                'format': 'mp3',
+              }),
+            )
+            .timeout(const Duration(seconds: 10));
+        if (response.statusCode != 200) return false;
+        bytes = response.bodyBytes;
+        _cache[clean] = bytes;
+      }
       await _player.stop();
-      await _player.play(BytesSource(response.bodyBytes));
+      await _player.play(BytesSource(bytes));
       return true;
     } catch (_) {
       return false;
@@ -74,53 +72,17 @@ class TtsService {
   }
 }
 
-enum SttAvailability { unknown, available, unavailable }
-
-/// Thin wrapper around `speech_to_text`. Recognition quality for N'Ko is
-/// inherently poor — no STT engine has a N'Ko model — so this is used only
-/// for a loose, best-effort match against a Latin-alphabet phonetic
-/// reference, with the UI always framing results as formative feedback.
-class SttService {
-  SttService._();
-  static final SttService instance = SttService._();
-
-  final stt.SpeechToText _speech = stt.SpeechToText();
-  SttAvailability _availability = SttAvailability.unknown;
-
-  Future<bool> initialize() async {
-    if (_availability == SttAvailability.available) return true;
-    try {
-      final ok = await _speech.initialize();
-      _availability = ok ? SttAvailability.available : SttAvailability.unavailable;
-      return ok;
-    } catch (_) {
-      _availability = SttAvailability.unavailable;
-      return false;
-    }
+/// Lit [text] via Djelia et, si l'audio n'est pas disponible, le dit
+/// clairement à l'utilisateur plutôt que de basculer sur une autre voix.
+Future<void> speakOrNotify(BuildContext context, String text) async {
+  final messenger = ScaffoldMessenger.maybeOf(context);
+  final ok = await TtsService.instance.speak(text);
+  if (!ok) {
+    messenger?.hideCurrentSnackBar();
+    messenger?.showSnackBar(SnackBar(
+      content: Text(TtsService.isConfigured
+          ? "Audio Djelia indisponible pour l'instant — vérifie ta connexion."
+          : "Audio non configuré (clé Djelia manquante)."),
+    ));
   }
-
-  bool get isListening => _speech.isListening;
-
-  Future<void> listen({required void Function(String text, bool isFinal) onResult}) async {
-    await _speech.listen(
-      onResult: (r) => onResult(r.recognizedWords, r.finalResult),
-      listenOptions: stt.SpeechListenOptions(
-        listenMode: stt.ListenMode.confirmation,
-      ),
-    );
-  }
-
-  Future<void> stop() => _speech.stop();
-}
-
-/// Very loose similarity: lowercase, strip non-letters, then compare by
-/// shared-prefix + substring containment. Good enough to distinguish "way
-/// off" from "roughly right" without pretending to be a real phonetic
-/// matcher — there isn't one for N'Ko.
-bool roughlyMatches(String heard, String target) {
-  String norm(String s) => s.toLowerCase().replaceAll(RegExp(r'[^a-z]'), '');
-  final h = norm(heard);
-  final t = norm(target);
-  if (h.isEmpty || t.isEmpty) return false;
-  return h.contains(t) || t.contains(h) || h.startsWith(t.substring(0, (t.length / 2).ceil()));
 }

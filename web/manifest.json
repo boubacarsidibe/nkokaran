@@ -1,11 +1,11 @@
 {
-    "name": "nko_kalan",
-    "short_name": "nko_kalan",
+    "name": "N'Ko Kalan",
+    "short_name": "N'Ko Kalan",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#1F2A5C",
+    "theme_color": "#1F2A5C",
+    "description": "Apprends à lire et écrire le ߒߞߏ",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

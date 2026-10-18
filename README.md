@@ -9,8 +9,7 @@ alphabet — built as a Duolingo-style gamified learning loop.
 - 7 units: vowels, four consonant groups, digits, and a "first word" capstone
 - Seven exercise types across lessons: multiple-choice (character↔sound), a
   match-the-pairs checkpoint, a tile-tap word-bank exercise, listening
-  (identify a letter by its sound), pronunciation (record and get
-  best-effort feedback), handwriting (trace a letter freehand), and
+  (identify a letter by its sound), pronunciation (listen to the Djelia voice and repeat aloud), handwriting (trace a letter freehand), and
   dictation (rebuild a spoken word from tiles)
 - Short French explanations shown under wrong answers
 - Units unlock sequentially as you complete the one before them
@@ -24,7 +23,7 @@ alphabet — built as a Duolingo-style gamified learning loop.
 - **XP & levels** — a levelling curve shown in the header and on your profile
 - **Streaks** — daily streak tracking with purchasable streak freezes that
   silently cover one missed day
-- **Daily goal** — a configurable daily XP target with progress tracking
+- **Daily goal** — a daily XP target (30 XP) with progress tracking
 - **Unit chests** — a randomized gems/XP reward dialog the first time you
   clear a unit
 - **Badges** — unlockable achievements (first lesson, 7-day streak, full
@@ -81,29 +80,33 @@ security rules in `firestore.rules`, not by hiding the key). You'll also need
 to enable the **Anonymous** sign-in provider in the Firebase console —
 `flutterfire configure` and the `firebase` CLI don't expose that toggle.
 
-## Bambara text-to-speech (optional)
+## Audio (Djelia uniquement)
 
-Device TTS engines don't have a Bambara/Maninka/Dioula voice, so by default
-every dialect falls back to reading the Latin-alphabet approximation with a
-French voice — audibly wrong, but the closest thing available on-device.
-When configured, the app instead always tries
-[Djelia](https://djelia.cloud) first for real Bambara speech synthesis (the
-only hosted TTS API we found with actual Manding-language support — Maninka
-and Dioula have no comparable hosted service as of writing), regardless of
-the user's dialect preference, since it's still closer to the real language
-family than the French-voice fallback. To enable it:
+Tout l'audio passe par [Djelia](https://djelia.cloud) (synthèse vocale
+bambara). Il n'y a **aucune voix de secours française** : sans clé ou en cas
+d'échec réseau, l'app affiche un message au lieu de lire du faux avec un
+accent français. Les annotations pédagogiques entre parenthèses
+(« é (fermé) ») ne sont jamais lues.
 
-1. Create a free-tier account at [console.djelia.cloud](https://console.djelia.cloud) and grab an API key.
-2. Run the app with `flutter run --dart-define=DJELIA_API_KEY=your_key_here`.
+```
+flutter run -d chrome --dart-define=DJELIA_API_KEY=ta_cle
+```
 
-Without a key (or if a request fails), it silently falls back to the French
-voice — same as every other dialect.
+Une clé passée par `--dart-define` est lisible dans le binaire (surtout sur
+le web). Pour une diffusion publique, déploie un petit proxy qui garde la clé
+et passe son URL avec `--dart-define=DJELIA_TTS_URL=https://ton-proxy/tts`.
+
+L'exercice de prononciation est désormais « écoute puis répète » (auto-évalué):
+les reconnaissances vocales des appareils sont calées sur le français/anglais
+et il n'existe pas de modèle N'Ko.
 
 ## Getting started
 
 ```
 flutter pub get
-flutter run -d chrome    # or -d windows, or any connected device
+flutter run -d chrome --dart-define=DJELIA_API_KEY=...   # ou -d windows / un appareil
+flutter test
+flutter build web --release --dart-define=DJELIA_API_KEY=...
 ```
 
 ## Project structure

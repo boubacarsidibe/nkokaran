@@ -47,7 +47,7 @@ class _LeagueScreenState extends State<LeagueScreen> {
     final available = await SocialService.instance.ensureReady();
     if (available) {
       await SocialService.instance.upsertProfile(
-        displayName: "Kalanden",
+        displayName: SocialService.instance.defaultDisplayName,
         xp: widget.progress.xp,
         weeklyXp: weeklyXpOf(widget.progress),
       );

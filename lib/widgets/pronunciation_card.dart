@@ -3,11 +3,10 @@ import '../models/nko_data.dart';
 import '../services/voice_service.dart';
 import '../theme/app_theme.dart';
 
-/// Pronunciation exercise (feature 17): show the target word, record the
-/// learner reading it aloud, and give best-effort feedback. Speech
-/// recognition has no N'Ko model, so this fuzzy-matches the recognized
-/// Latin-alphabet transcript against [Exercise.targetPhonetic] — framed as
-/// formative feedback, never a hard pass/fail gate.
+/// Pronunciation exercise: listen to the word (Djelia, Bambara voice) and
+/// repeat it aloud. There's no speech recognizer for N'Ko or Bambara — the
+/// device recognizers are tied to French/English locales — so the learner
+/// self-assesses instead of being graded by a French-biased matcher.
 class PronunciationCard extends StatefulWidget {
   final Exercise exercise;
   const PronunciationCard({super.key, required this.exercise});
@@ -17,34 +16,11 @@ class PronunciationCard extends StatefulWidget {
 }
 
 class _PronunciationCardState extends State<PronunciationCard> {
-  bool _checking = false;
-  bool _unavailable = false;
-  String _heard = "";
-  bool? _matched;
+  int _listens = 0;
 
-  Future<void> _record() async {
-    final available = await SttService.instance.initialize();
-    if (!available) {
-      setState(() => _unavailable = true);
-      return;
-    }
-    setState(() {
-      _checking = true;
-      _heard = "";
-      _matched = null;
-    });
-    await SttService.instance.listen(
-      onResult: (text, isFinal) {
-        if (!mounted) return;
-        setState(() => _heard = text);
-        if (isFinal) {
-          setState(() {
-            _checking = false;
-            _matched = roughlyMatches(text, widget.exercise.targetPhonetic!);
-          });
-        }
-      },
-    );
+  Future<void> _listen() async {
+    setState(() => _listens += 1);
+    await speakOrNotify(context, widget.exercise.spokenText ?? widget.exercise.targetPhonetic!);
   }
 
   @override
@@ -54,43 +30,29 @@ class _PronunciationCardState extends State<PronunciationCard> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text("Prononce ce mot à voix haute",
+          Text("Écoute le mot, puis répète-le à voix haute",
               textAlign: TextAlign.center, style: AppText.inter(fontSize: 16, fontWeight: FontWeight.w600)),
           const SizedBox(height: 22),
           Text(widget.exercise.targetWord!, style: AppText.nko(fontSize: 64), textDirection: TextDirection.rtl),
           const SizedBox(height: 26),
-          if (_unavailable)
-            Text(
-              "Reconnaissance vocale indisponible sur cet appareil — réessaie depuis un téléphone ou une tablette.",
-              textAlign: TextAlign.center,
-              style: AppText.inter(fontSize: 13, color: AppColors.ink.withValues(alpha: 0.65)),
-            )
-          else ...[
-            GestureDetector(
-              onTap: _checking ? null : _record,
-              child: Container(
-                width: 84,
-                height: 84,
-                decoration: BoxDecoration(
-                  color: _checking ? AppColors.red : AppColors.indigo,
-                  shape: BoxShape.circle,
-                ),
-                alignment: Alignment.center,
-                child: Icon(_checking ? Icons.mic : Icons.mic_none, color: Colors.white, size: 36),
-              ),
+          GestureDetector(
+            onTap: _listen,
+            child: Container(
+              width: 84,
+              height: 84,
+              decoration: const BoxDecoration(color: AppColors.indigo, shape: BoxShape.circle),
+              alignment: Alignment.center,
+              child: Icon(_listens > 0 ? Icons.volume_up : Icons.volume_up_outlined, color: Colors.white, size: 36),
             ),
-            const SizedBox(height: 14),
-            if (_checking) Text("Je t'écoute…", style: AppText.inter(fontSize: 13, color: AppColors.ink.withValues(alpha: 0.6))),
-            if (!_checking && _matched != null) ...[
-              Text('Entendu : "$_heard"', style: AppText.inter(fontSize: 13, color: AppColors.ink.withValues(alpha: 0.6))),
-              const SizedBox(height: 6),
-              Text(
-                _matched! ? "Bonne prononciation !" : "Pas tout à fait — réessaie en articulant chaque syllabe.",
-                style: AppText.inter(
-                    fontSize: 14, fontWeight: FontWeight.w700, color: _matched! ? AppColors.green : AppColors.clay),
-              ),
-            ],
-          ],
+          ),
+          const SizedBox(height: 14),
+          Text(
+            _listens == 0
+                ? "Touche pour écouter."
+                : "Répète autant de fois que tu veux, puis continue.",
+            textAlign: TextAlign.center,
+            style: AppText.inter(fontSize: 13, color: AppColors.ink.withValues(alpha: 0.6)),
+          ),
         ],
       ),
     );

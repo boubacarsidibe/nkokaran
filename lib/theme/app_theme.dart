@@ -20,6 +20,10 @@ class AppColors {
   static const selectedBg = Color(0xFFEFE6CF);
 }
 
+/// N'Ko glyphs embedded in Latin text (explanations, quiz labels…) fall back
+/// to the bundled N'Ko font instead of whatever the system happens to have.
+const _nkoFallback = ['NotoSansNKo'];
+
 class AppText {
   static TextStyle fraunces({
     double fontSize = 16,
@@ -32,7 +36,7 @@ class AppText {
         fontWeight: fontWeight,
         color: color,
         letterSpacing: letterSpacing,
-      );
+      ).copyWith(fontFamilyFallback: _nkoFallback);
 
   static TextStyle inter({
     double fontSize = 14,
@@ -45,14 +49,17 @@ class AppText {
         fontWeight: fontWeight,
         color: color,
         letterSpacing: letterSpacing,
-      );
+      ).copyWith(fontFamilyFallback: _nkoFallback);
 
   static TextStyle nko({
     double fontSize = 40,
     Color color = AppColors.ink,
     FontWeight fontWeight = FontWeight.w400,
   }) =>
-      GoogleFonts.notoSansNKo(
+      // Bundled (assets/fonts) so N'Ko glyphs render offline — the script is
+      // the whole point of the app and can't depend on a runtime download.
+      TextStyle(
+        fontFamily: 'NotoSansNKo',
         fontSize: fontSize,
         color: color,
         fontWeight: fontWeight,

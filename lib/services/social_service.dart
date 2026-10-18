@@ -7,6 +7,9 @@ import '../firebase_options.dart';
 /// needs a real Firebase project — see `lib/firebase_options.dart`. Every
 /// public method fails soft (returns empty/false) when Firebase isn't
 /// configured or reachable, so the rest of the app keeps working without it.
+/// The single shared club every player can join.
+const defaultClubId = 'kalanden-manding';
+
 class SocialService {
   SocialService._();
   static final SocialService instance = SocialService._();
@@ -40,10 +43,13 @@ class SocialService {
 
   /// Call after login and whenever local XP changes, so the leaderboard and
   /// club contributions stay in sync.
+  /// Public pseudo: stable per install, distinguishable between players.
+  String get defaultDisplayName => 'Kalanden-${(_uid ?? '0000').substring(0, 4)}';
+
   Future<void> upsertProfile({required String displayName, required int xp, required int weeklyXp}) async {
     if (!_available) return;
     await _db.collection('users').doc(_uid).set({
-      'displayName': displayName,
+      'displayName': displayName.trim().isEmpty ? 'Kalanden' : displayName.trim(),
       'xp': xp,
       'weeklyXp': weeklyXp,
       'updatedAt': FieldValue.serverTimestamp(),
@@ -97,7 +103,8 @@ class SocialService {
     if (!_available || text.trim().isEmpty) return;
     await _db.collection('lessonThreads').doc(unitId).collection('posts').add({
       'author': author,
-      'text': text.trim(),
+      'authorUid': _uid,
+      'text': text.trim().length > 500 ? text.trim().substring(0, 500) : text.trim(),
       'createdAt': FieldValue.serverTimestamp(),
     });
   }
@@ -118,17 +125,22 @@ class SocialService {
 
   Future<void> joinClub(String clubId, String displayName) async {
     if (!_available) return;
+    final existing = await _db.collection('clubs').doc(clubId).get();
+    final members = (existing.data()?['members'] as Map?) ?? const {};
+    if (members.containsKey(_uid)) return; // don't reset our own tally
     await _db.collection('clubs').doc(clubId).set({
       'name': clubId,
       'weeklyGoalXp': 500,
-      'members.$_uid': 0,
+      'members': {_uid: 0},
     }, SetOptions(merge: true));
   }
 
+  /// Adds [xp] earned by this player to the club's tally. Called from real
+  /// lesson completions (see main.dart), never from a free-standing button.
   Future<void> contributeToClub(String clubId, int xp) async {
-    if (!_available) return;
+    if (!_available || xp <= 0) return;
     await _db.collection('clubs').doc(clubId).set({
-      'members.$_uid': FieldValue.increment(xp),
+      'members': {_uid: FieldValue.increment(xp)},
     }, SetOptions(merge: true));
   }
 }

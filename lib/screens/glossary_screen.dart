@@ -4,8 +4,7 @@ import '../services/voice_service.dart';
 import '../theme/app_theme.dart';
 
 /// Feature 24 — searchable glossary of every word/letter taught so far,
-/// each with a "play" button. Plays a TTS approximation since there's no
-/// bundled native-speaker audio yet (see [TtsService]).
+/// each with a "play" button. Audio via Djelia (voix bambara) — see [TtsService].
 class GlossaryScreen extends StatefulWidget {
   const GlossaryScreen({super.key});
 
@@ -89,7 +88,7 @@ class _GlossaryRow extends StatelessWidget {
         children: [
           IconButton(
             icon: const Icon(Icons.volume_up, color: AppColors.indigo),
-            onPressed: () => TtsService.instance.speak(entry.latin),
+            onPressed: () => speakOrNotify(context, entry.latin),
           ),
           const SizedBox(width: 4),
           Text(entry.nko, textDirection: TextDirection.rtl, style: AppText.nko(fontSize: 22)),

@@ -2,6 +2,11 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const _storageKey = "nko_kalan_progress_v1";
+const _corruptBackupKey = "nko_kalan_progress_corrupt_backup";
+
+/// Bumped whenever the saved JSON shape changes in a way [Progress.fromJson]
+/// can't absorb with defaults — lets a future migration branch on it.
+const int progressSchemaVersion = 1;
 
 const int maxHearts = 5;
 // Compressed vs. Duolingo's real-world ~4h regen so the mechanic is
@@ -20,6 +25,10 @@ class Progress {
   int xp;
   int streak;
   String? lastActive;
+
+  /// Last day a lesson/practice session was actually completed — the streak
+  /// only moves on study, never on merely opening the app.
+  String? lastStudyDay;
 
   int gems;
   int hearts;
@@ -78,6 +87,7 @@ class Progress {
     this.xp = 0,
     this.streak = 0,
     this.lastActive,
+    this.lastStudyDay,
     this.gems = 20,
     int? hearts,
     this.nextHeartAtMs,
@@ -116,6 +126,8 @@ class Progress {
         xp: json['xp'] ?? 0,
         streak: json['streak'] ?? 0,
         lastActive: json['lastActive'],
+        // Saves from before this field existed: fall back to lastActive.
+        lastStudyDay: json['lastStudyDay'] ?? json['lastActive'],
         gems: json['gems'] ?? 20,
         hearts: json['hearts'] ?? maxHearts,
         nextHeartAtMs: json['nextHeartAtMs'],
@@ -145,6 +157,8 @@ class Progress {
       );
 
   Map<String, dynamic> toJson() => {
+        'schemaVersion': progressSchemaVersion,
+        'lastStudyDay': lastStudyDay,
         'completedUnits': completedUnits,
         'xp': xp,
         'streak': streak,
@@ -175,6 +189,32 @@ class Progress {
       };
 
   Progress copy() => Progress.fromJson(toJson());
+
+  /// Called when the app opens. Resolves missed days: each streak freeze
+  /// covers exactly one missed day; if the gap is larger than the freezes
+  /// available, the streak is lost.
+  void settleStreak(DateTime now) {
+    final last = lastStudyDay == null ? null : _parseDayKey(lastStudyDay!);
+    if (last == null || streak == 0) return;
+    final missed = _daysBetween(last, now) - 1;
+    if (missed <= 0) return;
+    if (streakFreezes >= missed) {
+      streakFreezes -= missed;
+      // Pretend yesterday was studied so the next session continues the run.
+      lastStudyDay = _dayKey(now.subtract(const Duration(days: 1)));
+    } else {
+      streak = 0;
+    }
+  }
+
+  /// Called once per finished session: advances the streak at most once a day.
+  void recordStudyDay(DateTime now) {
+    final today = _dayKey(now);
+    if (lastStudyDay == today) return;
+    final last = lastStudyDay == null ? null : _parseDayKey(lastStudyDay!);
+    streak = (last != null && _daysBetween(last, now) == 1) ? streak + 1 : 1;
+    lastStudyDay = today;
+  }
 
   bool get dailyGoalReached => xpToday >= dailyGoalXp;
 
@@ -325,6 +365,18 @@ void checkAndAwardBadges(Progress p) {
 /// day key that only changes at local midnight.
 String _dayKey(DateTime d) => "${d.year}-${d.month}-${d.day}";
 
+DateTime? _parseDayKey(String key) {
+  final parts = key.split('-');
+  if (parts.length != 3) return null;
+  final y = int.tryParse(parts[0]), m = int.tryParse(parts[1]), d = int.tryParse(parts[2]);
+  if (y == null || m == null || d == null) return null;
+  return DateTime(y, m, d);
+}
+
+/// Whole calendar days from [a] to [b] (DST-safe: compares date parts only).
+int _daysBetween(DateTime a, DateTime b) =>
+    DateTime.utc(b.year, b.month, b.day).difference(DateTime.utc(a.year, a.month, a.day)).inDays;
+
 /// Coarse year+week key (week = day-of-year / 7) — good enough to detect
 /// "new week" for the weekly challenge without pulling in an ISO-8601 lib.
 String _weekKey(DateTime d) {
@@ -342,25 +394,15 @@ class ProgressStore {
       try {
         p = Progress.fromJson(jsonDecode(raw));
       } catch (_) {
-        // no saved progress yet / corrupt — fall back to defaults
+        // Unreadable save: keep the raw text aside instead of letting the
+        // fresh defaults overwrite (and permanently destroy) it.
+        await prefs.setString(_corruptBackupKey, raw);
       }
     }
 
     final now = DateTime.now();
-    final today = _dayKey(now);
-    if (p.lastActive != today) {
-      final yesterday = _dayKey(now.subtract(const Duration(days: 1)));
-      if (p.lastActive == yesterday) {
-        p.streak = p.streak + 1;
-      } else if (p.lastActive != null && p.streakFreezes > 0) {
-        // A streak freeze silently covers exactly one missed day.
-        p.streakFreezes -= 1;
-        p.streak = p.streak + 1;
-      } else if (p.lastActive != null) {
-        p.streak = 1;
-      }
-      p.lastActive = today;
-    }
+    p.lastActive = _dayKey(now);
+    p.settleStreak(now);
     p.regenerateHearts(now);
     await save(p);
     return p;

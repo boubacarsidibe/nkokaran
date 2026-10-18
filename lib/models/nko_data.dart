@@ -416,7 +416,7 @@ List<Exercise> buildExercises(NkoUnit unit) {
           NkoLetter(char: "ߛ", name: "SA", sound: "sa"),
         ],
       ),
-      Exercise.pronunciation(targetWord: "ߒߞߏ", targetPhonetic: "nko"),
+      Exercise.pronunciation(targetWord: "ߒߞߏ", targetPhonetic: "n ko"),
       Exercise.dictation(
         question: "Écoute et reconstitue le mot que tu entends",
         spokenText: "n ko",

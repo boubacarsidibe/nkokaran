@@ -13,7 +13,7 @@ class ClubScreen extends StatefulWidget {
 }
 
 class _ClubScreenState extends State<ClubScreen> {
-  static const _defaultClubId = "kalanden-manding";
+  static const _defaultClubId = defaultClubId;
   bool _checking = true;
   bool _available = false;
 
@@ -100,10 +100,9 @@ class _ClubScreenState extends State<ClubScreen> {
                                 Text("${club.totalXp} / ${club.weeklyGoalXp} XP cette semaine",
                                     style: AppText.inter(fontSize: 13, fontWeight: FontWeight.w600)),
                                 const SizedBox(height: 20),
-                                PrimaryButton(
-                                  label: "Contribuer 10 XP",
-                                  onPressed: () => SocialService.instance.contributeToClub(_defaultClubId, 10),
-                                ),
+                                Text("Chaque leçon terminée ajoute son XP à l'objectif du club.",
+                                    textAlign: TextAlign.center,
+                                    style: AppText.inter(fontSize: 13, color: AppColors.ink.withValues(alpha: 0.6))),
                               ],
                             ),
                           );

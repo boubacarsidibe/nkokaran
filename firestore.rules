@@ -2,14 +2,26 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     function isSignedIn() { return request.auth != null; }
-    function isOwner(uid) { return request.auth.uid == uid; }
+    function isOwner(uid) { return isSignedIn() && request.auth.uid == uid; }
 
     match /users/{uid} {
       allow read: if isSignedIn();
-      allow write: if isSignedIn() && isOwner(uid);
+      // Owner-only writes, with sane bounds on the public leaderboard fields.
+      // (XP is still client-reported; true anti-cheat needs Cloud Functions.)
+      allow create, update: if isOwner(uid)
+        && request.resource.data.displayName is string
+        && request.resource.data.displayName.size() > 0
+        && request.resource.data.displayName.size() <= 30
+        && request.resource.data.xp is int
+        && request.resource.data.xp >= 0
+        && request.resource.data.xp < 1000000
+        && request.resource.data.weeklyXp is int
+        && request.resource.data.weeklyXp >= 0
+        && request.resource.data.weeklyXp <= 7000;
+      allow delete: if isOwner(uid);
 
       match /friends/{friendUid} {
-        allow read, write: if isSignedIn() && isOwner(uid);
+        allow read, write: if isOwner(uid);
       }
     }
 
@@ -17,14 +29,27 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow create: if isSignedIn()
         && request.resource.data.author is string
+        && request.resource.data.author.size() <= 30
+        && request.resource.data.authorUid == request.auth.uid
         && request.resource.data.text is string
-        && request.resource.data.text.size() > 0;
+        && request.resource.data.text.size() > 0
+        && request.resource.data.text.size() <= 500;
       allow update, delete: if false;
     }
 
+    // A player may only touch their own entry in the club's members map and
+    // never the club's name or goal.
     match /clubs/{clubId} {
       allow read: if isSignedIn();
-      allow write: if isSignedIn();
+      allow create, update: if isSignedIn()
+        && request.resource.data.diff(resource == null ? {} : resource.data)
+             .affectedKeys().hasOnly(['name', 'weeklyGoalXp', 'members'])
+        && (resource == null
+            || (request.resource.data.name == resource.data.name
+                && request.resource.data.weeklyGoalXp == resource.data.weeklyGoalXp))
+        && request.resource.data.members.diff(resource == null ? {} : resource.data.members)
+             .affectedKeys().hasOnly([request.auth.uid]);
+      allow delete: if false;
     }
   }
 }

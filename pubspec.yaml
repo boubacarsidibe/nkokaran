@@ -4,7 +4,8 @@ publish_to: 'none'
 version: 1.0.0+1
 
 environment:
-  sdk: '>=3.3.0 <4.0.0'
+  sdk: '>=3.6.0 <4.0.0'
+  flutter: '>=3.27.0'
 
 dependencies:
   flutter:
@@ -12,8 +13,6 @@ dependencies:
   cupertino_icons: ^1.0.6
   google_fonts: ^6.2.1
   shared_preferences: ^2.2.3
-  flutter_tts: ^4.0.2
-  speech_to_text: ^7.0.0
   http: ^1.2.2
   audioplayers: ^6.1.0
   flutter_local_notifications: ^18.0.1
@@ -28,3 +27,7 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  fonts:
+    - family: NotoSansNKo
+      fonts:
+        - asset: assets/fonts/NotoSansNKo-Regular.ttf

@@ -127,7 +127,7 @@ class _LessonThreadScreenState extends State<LessonThreadScreen> {
                                   style: IconButton.styleFrom(backgroundColor: AppColors.indigo),
                                   icon: const Icon(Icons.send, color: Colors.white),
                                   onPressed: () async {
-                                    await SocialService.instance.postToThread(widget.unitId, "Kalanden", _controller.text);
+                                    await SocialService.instance.postToThread(widget.unitId, SocialService.instance.defaultDisplayName, _controller.text);
                                     _controller.clear();
                                   },
                                 ),

@@ -13,6 +13,7 @@ import 'screens/profile_screen.dart';
 import 'screens/story_list_screen.dart';
 import 'screens/summary_screen.dart';
 import 'services/notification_service.dart';
+import 'services/social_service.dart';
 import 'state/progress_store.dart';
 import 'state/spaced_repetition.dart';
 import 'theme/app_theme.dart';
@@ -87,6 +88,7 @@ class _NkoKalanRootState extends State<NkoKalanRoot> {
     });
     NotificationService.instance.scheduleDailyReminder();
     _heartTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (_progress.hearts >= maxHearts) return;
       setState(() => _progress.regenerateHearts(DateTime.now()));
       ProgressStore.save(_progress);
     });
@@ -96,17 +98,31 @@ class _NkoKalanRootState extends State<NkoKalanRoot> {
     await ProgressStore.save(_progress);
   }
 
-  void _startUnit(NkoUnit unit, bool locked) {
-    if (locked) return;
+  /// Re-runs whichever session was last started — used by "Rejouer" /
+  /// "Réessayer" so every session kind (unit, practice, mistakes, review,
+  /// translation) can be replayed, not just the ones backed by a letter list.
+  VoidCallback? _restart;
+
+  /// Single entry point for every kind of session. [build] is called again
+  /// on replay so each run gets freshly shuffled exercises.
+  void _beginSession(
+    NkoUnit unit,
+    List<Exercise> Function() build, {
+    required bool practice,
+    bool mistakes = false,
+  }) {
     if (_progress.hearts <= 0) {
       _showNoHeartsSnack();
       return;
     }
+    final exercises = build();
+    if (exercises.isEmpty) return;
+    _restart = () => _beginSession(unit, build, practice: practice, mistakes: mistakes);
     setState(() {
       _activeUnit = unit;
-      _isPractice = false;
-      _isMistakesReview = false;
-      _exercises = buildExercises(unit);
+      _isPractice = practice;
+      _isMistakesReview = mistakes;
+      _exercises = exercises;
       _exIndex = 0;
       _sessionXp = 0;
       _sessionMistakes = 0;
@@ -116,112 +132,77 @@ class _NkoKalanRootState extends State<NkoKalanRoot> {
       _isCorrect = false;
       _screen = _Screen.lesson;
     });
+  }
+
+  void _startUnit(NkoUnit unit, bool locked) {
+    if (locked) return;
+    _beginSession(unit, () => buildExercises(unit), practice: false);
   }
 
   void _startPractice(NkoUnit unit) {
-    if (_progress.hearts <= 0) {
-      _showNoHeartsSnack();
-      return;
-    }
-    setState(() {
-      _activeUnit = unit;
-      _isPractice = true;
-      _isMistakesReview = false;
-      _exercises = buildPracticeExercises(unit.letters!, unit.pool!, count: 8);
-      _exIndex = 0;
-      _sessionXp = 0;
-      _sessionMistakes = 0;
-      _sessionStart = DateTime.now();
-      _selected = null;
-      _checked = false;
-      _isCorrect = false;
-      _screen = _Screen.lesson;
-    });
+    _beginSession(unit, () => buildPracticeExercises(unit.letters!, unit.pool!, count: 8), practice: true);
   }
 
   void _startMistakesPractice() {
-    if (_progress.hearts <= 0) {
-      _showNoHeartsSnack();
-      return;
-    }
     final letters = _progress.weakLetters.map(letterByChar).whereType<NkoLetter>().toList();
     if (letters.isEmpty) return;
-    setState(() {
-      _activeUnit = const NkoUnit(
+    _beginSession(
+      const NkoUnit(
         id: "mistakes",
         title: "Révision des erreurs",
         subtitle: "Tes lettres à retravailler",
         letters: null,
         pool: null,
-      );
-      _isPractice = true;
-      _isMistakesReview = true;
-      _exercises = buildPracticeExercises(letters, allLettersAndDigits, count: letters.length.clamp(4, 10));
-      _exIndex = 0;
-      _sessionXp = 0;
-      _sessionMistakes = 0;
-      _sessionStart = DateTime.now();
-      _selected = null;
-      _checked = false;
-      _isCorrect = false;
-      _screen = _Screen.lesson;
-    });
+      ),
+      () => buildPracticeExercises(letters, allLettersAndDigits, count: letters.length.clamp(4, 10)),
+      practice: true,
+      mistakes: true,
+    );
   }
 
   void _startDueReview() {
-    if (_progress.hearts <= 0) {
-      _showNoHeartsSnack();
-      return;
-    }
     final due = dueForReview(_progress, DateTime.now()).map(letterByChar).whereType<NkoLetter>().toList();
     if (due.isEmpty) return;
-    setState(() {
-      _activeUnit = const NkoUnit(
+    _beginSession(
+      const NkoUnit(
         id: "review",
         title: "Révision espacée",
         subtitle: "Tes lettres à réviser aujourd'hui",
         letters: null,
         pool: null,
-      );
-      _isPractice = true;
-      _isMistakesReview = false;
-      _exercises = buildPracticeExercises(due, allLettersAndDigits, count: due.length.clamp(4, 10));
-      _exIndex = 0;
-      _sessionXp = 0;
-      _sessionMistakes = 0;
-      _sessionStart = DateTime.now();
-      _selected = null;
-      _checked = false;
-      _isCorrect = false;
-      _screen = _Screen.lesson;
-    });
+      ),
+      () => buildPracticeExercises(due, allLettersAndDigits, count: due.length.clamp(4, 10)),
+      practice: true,
+    );
   }
 
   void _startTranslationPractice() {
-    if (_progress.hearts <= 0) {
-      _showNoHeartsSnack();
-      return;
-    }
-    setState(() {
-      _activeUnit = const NkoUnit(
+    _beginSession(
+      const NkoUnit(
         id: "translation",
         title: "Traduction",
         subtitle: "Mots et phrases dans les deux sens",
         letters: null,
         pool: null,
-      );
-      _isPractice = true;
-      _isMistakesReview = false;
-      _exercises = shuffle(translationExercises);
-      _exIndex = 0;
-      _sessionXp = 0;
-      _sessionMistakes = 0;
-      _sessionStart = DateTime.now();
-      _selected = null;
-      _checked = false;
-      _isCorrect = false;
-      _screen = _Screen.lesson;
-    });
+      ),
+      () => shuffle(translationExercises),
+      practice: true,
+    );
+  }
+
+  Future<void> _confirmQuit() async {
+    final quit = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Quitter la leçon ?"),
+        content: const Text("Ta progression dans cette leçon sera perdue."),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Continuer")),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text("Quitter")),
+        ],
+      ),
+    );
+    if (quit == true && mounted) _returnToTab(_isPractice ? _Tab.practice : _Tab.learn);
   }
 
   void _showNoHeartsSnack() {
@@ -294,16 +275,15 @@ class _NkoKalanRootState extends State<NkoKalanRoot> {
     });
   }
 
-Future<void> _finishSession() async {
+  Future<void> _finishSession() async {
     final now = DateTime.now();
     final perfect = _sessionMistakes == 0;
-    final gemsEarned = _isPractice
-        ? 2
-        : gemsPerLesson + (perfect ? gemsPerfectBonus : 0);
+    final gemsEarned = _isPractice ? 2 : gemsPerLesson + (perfect ? gemsPerfectBonus : 0);
 
     _progress.addXp(_sessionXp, now);
     _progress.gems += gemsEarned;
     _progress.recordSessionCompletion(now);
+    _progress.recordStudyDay(now);
     if (_sessionStart != null) {
       _progress.recordStudyTime(now.difference(_sessionStart!).inMilliseconds, now);
     }
@@ -335,7 +315,11 @@ Future<void> _finishSession() async {
       _progress.gems += chestGems;
       _progress.addXp(chestXp, now);
       await showChestDialog(context, reward);
+      if (!mounted) return;
     }
+
+    // Best-effort: feeds the shared club's weekly goal with real XP only.
+    SocialService.instance.contributeToClub(defaultClubId, _sessionXp + chestXp).catchError((_) {});
 
     setState(() {
       _sessionGems = gemsEarned + chestGems;
@@ -407,53 +391,71 @@ Future<void> _finishSession() async {
 
     switch (_screen) {
       case _Screen.home:
-        return _Shell(
-          tab: _tab,
-          onTabChanged: (t) => setState(() => _tab = t),
-          progress: _progress,
-          onStart: _startUnit,
-          onHeartsTap: () {
-            if (_progress.hearts < maxHearts && _progress.gems >= heartRefillCost) {
-              _refillHeartsWithGems();
-            } else if (_progress.hearts >= maxHearts) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("Cœurs déjà au maximum.")),
-              );
-            } else {
-              _showNoHeartsSnack();
-            }
+        return PopScope(
+          canPop: _tab == _Tab.learn,
+          onPopInvokedWithResult: (didPop, _) {
+            if (!didPop) setState(() => _tab = _Tab.learn);
           },
-          onPractice: _startPractice,
-          onPracticeMistakes: _startMistakesPractice,
-          onPracticeReview: _startDueReview,
-          dueReviewCount: dueForReview(_progress, DateTime.now()).length,
-          onPracticeTranslation: _startTranslationPractice,
-          onRefillHearts: _refillHeartsWithGems,
-          onBuyStreakFreeze: _buyStreakFreeze,
-          onPlayEpisode: _startEpisode,
-          onDialectChanged: _setPreferredDialect,
+          child: _Shell(
+            tab: _tab,
+            onTabChanged: (t) => setState(() => _tab = t),
+            progress: _progress,
+            onStart: _startUnit,
+            onHeartsTap: () {
+              if (_progress.hearts < maxHearts && _progress.gems >= heartRefillCost) {
+                _refillHeartsWithGems();
+              } else if (_progress.hearts >= maxHearts) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("Cœurs déjà au maximum.")),
+                );
+              } else {
+                _showNoHeartsSnack();
+              }
+            },
+            onPractice: _startPractice,
+            onPracticeMistakes: _startMistakesPractice,
+            onPracticeReview: _startDueReview,
+            dueReviewCount: dueForReview(_progress, DateTime.now()).length,
+            onPracticeTranslation: _startTranslationPractice,
+            onRefillHearts: _refillHeartsWithGems,
+            onBuyStreakFreeze: _buyStreakFreeze,
+            onPlayEpisode: _startEpisode,
+            onDialectChanged: _setPreferredDialect,
+          ),
         );
       case _Screen.episode:
-        return EpisodePlayerScreen(
-          episode: _activeEpisode!,
-          onFinished: _finishEpisode,
-          onQuit: () => _returnToTab(_Tab.story),
+        return PopScope(
+          canPop: false,
+          onPopInvokedWithResult: (didPop, _) {
+            if (!didPop) _returnToTab(_Tab.story);
+          },
+          child: EpisodePlayerScreen(
+            episode: _activeEpisode!,
+            onFinished: _finishEpisode,
+            onQuit: () => _returnToTab(_Tab.story),
+          ),
         );
       case _Screen.lesson:
-        return LessonScreen(
-          unit: _activeUnit!,
-          exercises: _exercises,
-          exIndex: _exIndex,
-          hearts: _progress.hearts,
-          sessionXp: _sessionXp,
-          selected: _selected,
-          checked: _checked,
-          isCorrect: _isCorrect,
-          onSelect: _selectOption,
-          onCheck: _checkAnswer,
-          onNext: _goNext,
-          onMatchSolved: _completeMatch,
-          onQuit: () => _returnToTab(_isPractice ? _Tab.practice : _Tab.learn),
+        return PopScope(
+          canPop: false,
+          onPopInvokedWithResult: (didPop, _) {
+            if (!didPop) _confirmQuit();
+          },
+          child: LessonScreen(
+            unit: _activeUnit!,
+            exercises: _exercises,
+            exIndex: _exIndex,
+            hearts: _progress.hearts,
+            sessionXp: _sessionXp,
+            selected: _selected,
+            checked: _checked,
+            isCorrect: _isCorrect,
+            onSelect: _selectOption,
+            onCheck: _checkAnswer,
+            onNext: _goNext,
+            onMatchSolved: _completeMatch,
+            onQuit: _confirmQuit,
+          ),
         );
       case _Screen.summary:
         return SummaryScreen(
@@ -462,16 +464,17 @@ Future<void> _finishSession() async {
           unit: _activeUnit,
           perfect: _sessionPerfect,
           onHome: () => _returnToTab(_isPractice ? _Tab.practice : _Tab.learn),
-          onReplay: () => _isPractice ? _startPractice(_activeUnit!) : _startUnit(_activeUnit!, false),
+          onReplay: () => _restart?.call(),
         );
       case _Screen.failed:
         return FailedScreen(
           gems: _progress.gems,
           onRefillWithGems: () {
             _refillHeartsWithGems();
-            setState(() => _screen = _Screen.lesson);
+            // Only resume once the refill actually went through.
+            if (_progress.hearts > 0) setState(() => _screen = _Screen.lesson);
           },
-          onRetry: () => _isPractice ? _startPractice(_activeUnit!) : _startUnit(_activeUnit!, false),
+          onRetry: () => _restart?.call(),
           onHome: () => _returnToTab(_isPractice ? _Tab.practice : _Tab.learn),
         );
     }
@@ -560,7 +563,8 @@ class _Shell extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
               _NavItem(icon: Icons.route, label: "Parcours", selected: tab == _Tab.learn, onTap: () => onTabChanged(_Tab.learn)),
-              _NavItem(icon: Icons.fitness_center, label: "Entraîner", selected: tab == _Tab.practice, onTap: () => onTabChanged(_Tab.practice)),
+              _NavItem(
+                  icon: Icons.fitness_center, label: "Entraîner", selected: tab == _Tab.practice, onTap: () => onTabChanged(_Tab.practice)),
               _NavItem(icon: Icons.auto_stories, label: "Histoires", selected: tab == _Tab.story, onTap: () => onTabChanged(_Tab.story)),
               _NavItem(icon: Icons.emoji_events, label: "Ligue", selected: tab == _Tab.league, onTap: () => onTabChanged(_Tab.league)),
               _NavItem(icon: Icons.person, label: "Profil", selected: tab == _Tab.profile, onTap: () => onTabChanged(_Tab.profile)),
