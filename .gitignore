@@ -46,3 +46,4 @@ app.*.map.json
 
 # Local secrets (e.g. {"DJELIA_API_KEY": "..."}) — never commit
 .env.json
+functions/node_modules/

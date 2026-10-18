@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -11,27 +12,27 @@ import 'package:http/http.dart' as http;
 /// l'appelant affiche un message au lieu de lire du faux avec un accent
 /// français.
 ///
-/// Clé à fournir au build/run : `--dart-define=DJELIA_API_KEY=...`.
-/// Attention : une clé passée par dart-define est lisible dans le binaire
-/// (surtout sur le web) — pour une diffusion publique, faire passer l'appel
-/// par un petit proxy serveur qui garde la clé.
-/// Une URL de proxy peut être donnée via `--dart-define=DJELIA_TTS_URL=...`.
+/// Deux modes, au choix du build :
+/// - **Proxy (recommandé en production)** : `--dart-define=DJELIA_TTS_URL=https://…/tts`.
+///   L'app envoie le jeton Firebase de l'utilisateur connecté ; la clé Djelia
+///   reste sur le serveur (voir `functions/`).
+/// - **Clé directe (dev local uniquement)** : `--dart-define=DJELIA_API_KEY=…`
+///   ou `--dart-define-from-file=.env.json`. Une clé passée par dart-define est
+///   lisible dans le binaire, surtout sur le web : ne pas diffuser un build ainsi.
 class TtsService {
   TtsService._();
   static final TtsService instance = TtsService._();
 
   static const _djeliaApiKey = String.fromEnvironment('DJELIA_API_KEY');
-  static const _djeliaTtsUrl = String.fromEnvironment(
-    'DJELIA_TTS_URL',
-    defaultValue: 'https://djelia.cloud/api/v1/models/tts',
-  );
+  static const _proxyUrl = String.fromEnvironment('DJELIA_TTS_URL');
+  static const _djeliaDirectUrl = 'https://djelia.cloud/api/v1/models/tts';
 
   final AudioPlayer _player = AudioPlayer();
   final Map<String, Uint8List> _cache = {};
 
   /// Vrai si une clé (ou un proxy) est configuré — permet à l'UI de
   /// prévenir l'utilisateur avant même d'essayer.
-  static bool get isConfigured => _djeliaApiKey.isNotEmpty || _djeliaTtsUrl != 'https://djelia.cloud/api/v1/models/tts';
+  static bool get isConfigured => _proxyUrl.isNotEmpty || _djeliaApiKey.isNotEmpty;
 
   /// Retire les annotations entre parenthèses (« é (fermé) » → « é »)
   /// pour que la synthèse ne lise pas les indications pédagogiques.
@@ -45,11 +46,14 @@ class TtsService {
     try {
       var bytes = _cache[clean];
       if (bytes == null) {
+        final useProxy = _proxyUrl.isNotEmpty;
+        final idToken = useProxy ? await FirebaseAuth.instance.currentUser?.getIdToken() : null;
+        if (useProxy && idToken == null) return false; // proxy only serves signed-in users
         final response = await http
             .post(
-              Uri.parse(_djeliaTtsUrl),
+              Uri.parse(useProxy ? _proxyUrl : _djeliaDirectUrl),
               headers: {
-                if (_djeliaApiKey.isNotEmpty) 'x-api-key': _djeliaApiKey,
+                if (useProxy) 'Authorization': 'Bearer $idToken' else 'x-api-key': _djeliaApiKey,
                 'Content-Type': 'application/json',
               },
               body: jsonEncode({

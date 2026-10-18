@@ -88,6 +88,21 @@ d'échec réseau, l'app affiche un message au lieu de lire du faux avec un
 accent français. Les annotations pédagogiques entre parenthèses
 (« é (fermé) ») ne sont jamais lues.
 
+### Production : proxy Cloud Functions (la clé reste sur le serveur)
+
+`functions/` contient une fonction `tts` qui vérifie le jeton Firebase de
+l'utilisateur, limite le débit (30 requêtes/min/utilisateur) et appelle Djelia
+avec la clé stockée comme secret Firebase :
+
+```
+firebase functions:secrets:set DJELIA_API_KEY      # colle ta clé (régénérée)
+firebase deploy --only functions                   # nécessite le plan Blaze
+flutter build web --release --no-web-resources-cdn \
+  --dart-define=DJELIA_TTS_URL=https://europe-west1-nko-kalan.cloudfunctions.net/tts
+```
+
+### Dev local : clé directe (ne jamais diffuser ce build)
+
 ```
 # .env.json (ignoré par git) : {"DJELIA_API_KEY": "ta_cle"}
 flutter run -d chrome --dart-define-from-file=.env.json
@@ -95,10 +110,6 @@ flutter run -d chrome --dart-define-from-file=.env.json
 
 La config VS Code « nko_kalan (Djelia) » lit ce même `.env.json` : ne mets
 jamais la clé en dur dans un fichier versionné.
-
-Une clé passée par `--dart-define` est lisible dans le binaire (surtout sur
-le web). Pour une diffusion publique, déploie un petit proxy qui garde la clé
-et passe son URL avec `--dart-define=DJELIA_TTS_URL=https://ton-proxy/tts`.
 
 L'exercice de prononciation est désormais « écoute puis répète » (auto-évalué):
 les reconnaissances vocales des appareils sont calées sur le français/anglais
