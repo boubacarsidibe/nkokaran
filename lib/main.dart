@@ -353,7 +353,8 @@ class _NkoKalanRootState extends State<NkoKalanRoot> {
       _isCorrect = ok;
       _checked = true;
       if (ok) {
-        _sessionXp += 10;
+        // Practice pays half XP so drilling can't out-earn the main path.
+        _sessionXp += _isPractice ? 5 : 10;
       } else {
         _sessionMistakes += 1;
         _progress.loseHeart(now);
@@ -700,18 +701,24 @@ class _NavItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = selected ? AppColors.indigo : AppColors.ink.withValues(alpha: 0.45);
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: color, size: 22),
-            const SizedBox(height: 2),
-            Text(label, style: AppText.inter(fontSize: 10, fontWeight: FontWeight.w600, color: color)),
-          ],
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: label,
+      excludeSemantics: true,
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: color, size: 22),
+              const SizedBox(height: 2),
+              Text(label, style: AppText.inter(fontSize: 11, fontWeight: FontWeight.w600, color: color)),
+            ],
+          ),
         ),
       ),
     );

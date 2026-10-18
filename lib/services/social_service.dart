@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 /// Backs features 25–27 (leagues, friends, lesson threads, clubs). Firebase
@@ -84,8 +85,43 @@ class SocialService {
         .limit(50)
         .snapshots()
         .map((s) => s.docs
-            .map((d) => ThreadPost(author: d['author'] ?? '?', text: d['text'] ?? '', createdAt: (d['createdAt'] as Timestamp?)?.toDate()))
+            .map((d) => ThreadPost(
+                  id: d.id,
+                  author: d['author'] ?? '?',
+                  authorUid: (d.data()['authorUid'] as String?) ?? '',
+                  text: d['text'] ?? '',
+                  createdAt: (d['createdAt'] as Timestamp?)?.toDate(),
+                ))
             .toList());
+  }
+
+  /// Signale un message pour modération (consultable côté console Firebase).
+  Future<void> reportPost(String unitId, ThreadPost post, String reason) async {
+    if (!isAvailable) return;
+    await _db.collection('reports').add({
+      'unitId': unitId,
+      'postId': post.id,
+      'postAuthorUid': post.authorUid,
+      'text': post.text.length > 500 ? post.text.substring(0, 500) : post.text,
+      'reason': reason,
+      'reporterUid': uid,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  static const _blockedKey = 'nko_kalan_blocked_uids';
+
+  /// Auteurs masqués par l'utilisateur — local à l'appareil.
+  Future<Set<String>> blockedUids() async {
+    final prefs = await SharedPreferences.getInstance();
+    return (prefs.getStringList(_blockedKey) ?? const []).toSet();
+  }
+
+  Future<void> blockUser(String authorUid) async {
+    if (authorUid.isEmpty || authorUid == uid) return;
+    final prefs = await SharedPreferences.getInstance();
+    final set = (prefs.getStringList(_blockedKey) ?? const []).toSet()..add(authorUid);
+    await prefs.setStringList(_blockedKey, set.toList());
   }
 
   Future<void> postToThread(String unitId, String author, String text) async {
@@ -117,12 +153,18 @@ class SocialService {
     final ref = _db.collection('clubs').doc(clubId);
     final snap = await ref.get();
     if (!snap.exists) {
-      await ref.set({'name': clubId, 'weeklyGoalXp': 500, 'members': {uid!: 0}});
+      await ref.set({
+        'name': clubId,
+        'weeklyGoalXp': 500,
+        'members': {uid!: 0}
+      });
       return;
     }
     final members = snap.data()?['members'] as Map?;
     if (members == null || !members.containsKey(uid)) {
-      await ref.set({'members': {uid: 0}}, SetOptions(merge: true));
+      await ref.set({
+        'members': {uid: 0}
+      }, SetOptions(merge: true));
     }
   }
 
@@ -144,10 +186,18 @@ class LeagueMember {
 }
 
 class ThreadPost {
+  final String id;
   final String author;
+  final String authorUid;
   final String text;
   final DateTime? createdAt;
-  const ThreadPost({required this.author, required this.text, required this.createdAt});
+  const ThreadPost({
+    required this.id,
+    required this.author,
+    required this.authorUid,
+    required this.text,
+    required this.createdAt,
+  });
 }
 
 class ClubData {

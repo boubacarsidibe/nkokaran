@@ -16,12 +16,16 @@ class LessonThreadScreen extends StatefulWidget {
 
 class _LessonThreadScreenState extends State<LessonThreadScreen> {
   final _controller = TextEditingController();
+  Set<String> _blocked = {};
   bool _checking = true;
   bool _available = false;
 
   @override
   void initState() {
     super.initState();
+    SocialService.instance.blockedUids().then((b) {
+      if (mounted) setState(() => _blocked = b);
+    });
     SocialService.instance.ensureReady().then((ok) {
       if (mounted) {
         setState(() {
@@ -30,6 +34,19 @@ class _LessonThreadScreenState extends State<LessonThreadScreen> {
         });
       }
     });
+  }
+
+  Future<void> _onPostAction(String action, ThreadPost post) async {
+    final messenger = ScaffoldMessenger.of(context);
+    if (action == 'report') {
+      await SocialService.instance.reportPost(widget.unitId, post, 'inapproprié');
+      messenger.showSnackBar(const SnackBar(content: Text("Merci, le message a été signalé.")));
+    } else {
+      await SocialService.instance.blockUser(post.authorUid);
+      final blocked = await SocialService.instance.blockedUids();
+      if (mounted) setState(() => _blocked = blocked);
+      messenger.showSnackBar(const SnackBar(content: Text("Auteur masqué sur cet appareil.")));
+    }
   }
 
   @override
@@ -71,7 +88,7 @@ class _LessonThreadScreenState extends State<LessonThreadScreen> {
                             child: StreamBuilder<List<ThreadPost>>(
                               stream: SocialService.instance.lessonThreadStream(widget.unitId),
                               builder: (context, snap) {
-                                final posts = snap.data ?? [];
+                                final posts = (snap.data ?? []).where((p) => !_blocked.contains(p.authorUid)).toList();
                                 if (posts.isEmpty) {
                                   return Center(
                                     child: Text("Sois le premier à poser une question sur cette leçon !",
@@ -94,7 +111,24 @@ class _LessonThreadScreenState extends State<LessonThreadScreen> {
                                       child: Column(
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
-                                          Text(p.author, style: AppText.inter(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.clay)),
+                                          Row(
+                                            children: [
+                                              Expanded(
+                                                child: Text(p.author,
+                                                    style: AppText.inter(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.clay)),
+                                              ),
+                                              if (p.authorUid != SocialService.instance.uid)
+                                                PopupMenuButton<String>(
+                                                  tooltip: "Options du message",
+                                                  icon: const Icon(Icons.more_vert, size: 18, color: AppColors.ink),
+                                                  onSelected: (v) => _onPostAction(v, p),
+                                                  itemBuilder: (_) => const [
+                                                    PopupMenuItem(value: 'report', child: Text("Signaler ce message")),
+                                                    PopupMenuItem(value: 'block', child: Text("Masquer cet auteur")),
+                                                  ],
+                                                ),
+                                            ],
+                                          ),
                                           const SizedBox(height: 4),
                                           Text(p.text, style: AppText.inter(fontSize: 14)),
                                         ],

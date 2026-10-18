@@ -55,9 +55,7 @@ class LessonScreen extends StatelessWidget {
     final canCheck = needsManualCheck && !checked;
     final buttonEnabled = canContinue || checked || (canCheck && selected != null);
 
-    final footerBg = checked
-        ? (isCorrect ? AppColors.correctBg : AppColors.wrongBg)
-        : Colors.transparent;
+    final footerBg = checked ? (isCorrect ? AppColors.correctBg : AppColors.wrongBg) : Colors.transparent;
     final buttonBg = checked ? (isCorrect ? AppColors.green : AppColors.red) : AppColors.indigo;
 
     return Scaffold(
@@ -72,9 +70,10 @@ class LessonScreen extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
                   child: Row(
                     children: [
-                      GestureDetector(
-                        onTap: onQuit,
-                        child: const Icon(Icons.close, size: 22, color: AppColors.ink),
+                      IconButton(
+                        tooltip: "Quitter la leçon",
+                        onPressed: onQuit,
+                        icon: const Icon(Icons.close, size: 22, color: AppColors.ink),
                       ),
                       const SizedBox(width: 14),
                       Expanded(
@@ -139,16 +138,13 @@ class LessonScreen extends StatelessWidget {
                               ),
                               if (!isCorrect && cur.explanation != null) ...[
                                 const SizedBox(height: 4),
-                                Text(cur.explanation!,
-                                    style: AppText.inter(fontSize: 13, color: AppColors.ink.withValues(alpha: 0.75))),
+                                Text(cur.explanation!, style: AppText.inter(fontSize: 13, color: AppColors.ink.withValues(alpha: 0.75))),
                               ],
                             ],
                           ),
                         ),
                       PrimaryButton(
-                        label: cur.type == ExerciseType.match
-                            ? "Continuer"
-                            : (canContinue || checked ? "Continuer" : "Vérifier"),
+                        label: cur.type == ExerciseType.match ? "Continuer" : (canContinue || checked ? "Continuer" : "Vérifier"),
                         background: buttonBg,
                         onPressed: buttonEnabled ? (canCheck ? onCheck : onNext) : null,
                       ),

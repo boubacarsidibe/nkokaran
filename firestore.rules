@@ -41,6 +41,15 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // Signalements de messages : écriture seule, lecture réservée à la console.
+    match /reports/{reportId} {
+      allow create: if isSignedIn()
+        && request.resource.data.reporterUid == request.auth.uid
+        && request.resource.data.reason is string
+        && request.resource.data.reason.size() <= 100;
+      allow read, update, delete: if false;
+    }
+
     // A player may only touch their own entry in the club's members map and
     // never the club's name or goal.
     match /clubs/{clubId} {
