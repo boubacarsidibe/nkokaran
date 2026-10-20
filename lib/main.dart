@@ -38,7 +38,9 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   String? initError;
   try {
-    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+    // Timeout: on web the Firebase JS SDK is fetched from the network; offline
+    // it would hang forever on a blank page instead of reaching the error screen.
+    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform).timeout(const Duration(seconds: 12));
     if (_crashlyticsSupported) {
       FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
       PlatformDispatcher.instance.onError = (error, stack) {
